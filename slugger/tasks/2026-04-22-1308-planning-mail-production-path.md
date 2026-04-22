@@ -142,6 +142,23 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - Tinfoil Hat second pass: STARTTLS, DNS rollback, certificate renewal, storage transient failures, rate limits, and decryption/key-mismatch recovery are not hardening extras; they are what make "mail works" recoverable.
 - Stranger With Candy changed the vocabulary: `sent` is currently too optimistic, local-only Mailroom setup is not production account ensure, HEY forwarding to the native address would prove delivery while losing delegated provenance, and "DNS automation" must include backup/dry-run/rollback rather than just update calls.
 - Recovery model: every setup step should be idempotent and report one of `not_started`, `blocked_by_human`, `pending_propagation`, `ready`, `failed_recoverable`, or `failed_manual_repair`, with the next agent-runnable command and the human-required action separated.
+- Human-needed lock list:
+  - Planning approval: human says `approved` for this planning doc before conversion.
+  - Doing approval: human reviews the generated doing doc once, or explicitly waives that repo gate for this task.
+  - Cross-repo authority: human confirms Codex may create branches/worktrees/PRs, push commits, open/merge PRs after green CI, trigger deployments, and repair branch protection in `ouro-work-substrate` and `ouroboros-agent-harness`.
+  - Dirty harness checkout: human confirms Codex should leave the current harness checkout alone and create a dedicated worktree/branch for harness PRs.
+  - Porkbun API: human creates or approves an `ouro.bot` Porkbun API key, does not paste it into chat, and lets Codex store it via a hidden prompt or approved secret store. Needed for DNS backup/dry-run/apply/rollback and certificate automation.
+  - DNS authority: human pre-authorizes the expected DNS changes after backup and dry-run evidence, or chooses to require a final pause before MX cutover. Expected changes are `mx1.ouro.bot` A/AAAA as appropriate, root MX to `mx1.ouro.bot`, and provider-required SPF/DKIM/DKIM2/DMARC/TXT/CNAME records while preserving unrelated verification records.
+  - Azure authority: human confirms Codex may create/modify Azure resources in `rg-ouro-work-substrate`, including Container Apps ingress port 25, secrets/cert mounts, managed identities/role assignments, ACS Email/Communication resources, Entra app credentials for SMTP auth, and Event Grid subscriptions/webhooks.
+  - Azure CLI repair: human allows Codex to repair/install Azure CLI extensions or use ARM/Bicep/REST fallback if `az communication` remains unavailable.
+  - Costs: human accepts the small production costs for ACS Email, Event Grid, Blob/Log Analytics, and any certificate/DNS automation.
+  - Vault unlock: human is available to unlock Slugger's vault or enter vault material through a hidden prompt when setup needs to store Mailroom private keys, Blob reader config, Porkbun/ACS credentials, or outbound transport config.
+  - HEY browser: human is available for HEY login/MFA/CAPTCHA and final confirmation. Browser automation may drive safe UI steps, but must stop for auth and any uncertain destructive action.
+  - HEY forwarding target: human confirms delegated HEY forwarding should use `me.mendelow.ari.slugger@ouro.bot`, not `slugger@ouro.bot`.
+  - HEY reliability expectation: human accepts HEY's documented limitation that forwarding can miss spam-classified mail and can be affected by forwarding authentication behavior; HEY remains a recovery source.
+  - Live test mail: human can send or approve test messages from HEY and at least one outside mailbox, and can confirm any UI/provider emails that require manual action.
+  - Outbound send test: human pre-approves limited confirmed test sends from `slugger@ouro.bot` to human-controlled addresses; autonomous sending remains disabled.
+  - Secret hygiene: secrets go only into agent vault, GitHub Actions secrets, Azure secrets/Key Vault/Container App secrets, macOS Keychain, or another explicit secret store; never into chat, docs, commits, PR bodies, or logs.
 - Recommended execution shape after approval: multiple narrow PRs under this full-moon plan, roughly contract/protocol sync, hosted provisioning integration, inbound edge/TLS/DNS automation, harness hosted reader and setup recovery, HEY onboarding automation, outbound provider/events, docs/smoke/deploy. The doing doc should define exact units before execution.
 
 ## Progress Log
