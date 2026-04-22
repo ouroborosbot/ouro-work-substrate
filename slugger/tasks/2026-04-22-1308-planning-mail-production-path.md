@@ -82,7 +82,8 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - Edge cases: null, empty, boundary values
 
 ## Open Questions
-- [ ] No remaining scope questions after the 2026-04-22 full-moon feedback. Remaining gates are operational inputs and approval: Porkbun API access, any Azure/ACS credentials that cannot be created by the current session, HEY browser/MFA confirmation, and explicit plan/doing approval under the repo workflow.
+- None remaining after the 2026-04-22 full-moon feedback.
+- Remaining gates are operational inputs and approval, not scope decisions: Porkbun API access, any Azure/ACS credentials that cannot be created by the current session, HEY browser/MFA confirmation, and explicit plan/doing approval under the repo workflow.
 
 ## Decisions Made
 - Scope is full-moon: inbound, outbound, DNS, HEY onboarding, hosted provisioning, local harness integration, recovery, docs, deployment, and live smoke tests all belong to this program.
