@@ -4,6 +4,11 @@ import type { MailroomRegistry } from "@ouro/work-protocol"
 export interface MailIngressArgs {
   registryPath?: string
   registryBase64?: string
+  registryAzureAccountUrl?: string
+  registryContainer: string
+  registryBlob: string
+  registryDomain: string
+  registryRefreshMs: number
   storePath?: string
   azureAccountUrl?: string
   azureContainer: string
@@ -17,6 +22,11 @@ export interface MailIngressArgs {
 const KEY_VALUE_ARGS = new Map([
   ["registry", "--registry"],
   ["registry-base64", "--registry-base64"],
+  ["registry-azure-account-url", "--registry-azure-account-url"],
+  ["registry-container", "--registry-container"],
+  ["registry-blob", "--registry-blob"],
+  ["registry-domain", "--registry-domain"],
+  ["registry-refresh-ms", "--registry-refresh-ms"],
   ["store", "--store"],
   ["azure-account-url", "--azure-account-url"],
   ["azure-container", "--azure-container"],
@@ -74,12 +84,18 @@ export function parseMailIngressArgs(args: string[]): MailIngressArgs {
   }
   const registryPath = optionalValue(expanded, "--registry")
   const registryBase64 = optionalValue(expanded, "--registry-base64")
-  if (!registryPath && !registryBase64) {
-    throw new Error("Missing --registry or --registry-base64")
+  const registryAzureAccountUrl = optionalValue(expanded, "--registry-azure-account-url")
+  if (!registryPath && !registryBase64 && !registryAzureAccountUrl) {
+    throw new Error("Missing --registry, --registry-base64, or --registry-azure-account-url")
   }
   return {
     ...(registryPath ? { registryPath } : {}),
     ...(registryBase64 ? { registryBase64 } : {}),
+    ...(registryAzureAccountUrl ? { registryAzureAccountUrl } : {}),
+    registryContainer: optionalValue(expanded, "--registry-container") ?? "mailroom",
+    registryBlob: optionalValue(expanded, "--registry-blob") ?? "registry/mailroom.json",
+    registryDomain: optionalValue(expanded, "--registry-domain") ?? "ouro.bot",
+    registryRefreshMs: optionalNumber(expanded, "--registry-refresh-ms", 30_000),
     ...(storePath ? { storePath } : {}),
     ...(azureAccountUrl ? { azureAccountUrl } : {}),
     azureContainer: optionalValue(expanded, "--azure-container") ?? "mailroom",
@@ -100,4 +116,3 @@ export function readRegistry(args: Pick<MailIngressArgs, "registryPath" | "regis
   if (!args.registryPath) throw new Error("Missing registry path")
   return JSON.parse(fs.readFileSync(args.registryPath, "utf-8")) as MailroomRegistry
 }
-

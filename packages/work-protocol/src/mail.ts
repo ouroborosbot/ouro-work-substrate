@@ -229,6 +229,10 @@ export interface MailroomEnsureResult {
   addedSourceGrant: boolean
 }
 
+export interface MailroomPublicEnsureResult extends MailroomEnsureResult {
+  generatedPrivateKeys: Record<string, string>
+}
+
 const LOCAL_PART_LIMIT = 64
 const SNIPPET_LIMIT = 240
 const RAW_OBJECT_PREFIX = "raw"
@@ -507,6 +511,7 @@ export function ensureMailboxRegistry(input: {
   ownerEmail?: string
   source?: string
   sourceTag?: string
+  requireExistingKeys?: boolean
 }): MailroomEnsureResult {
   const domain = (input.registry?.domain ?? input.domain ?? "ouro.bot").toLowerCase()
   const agentId = safeAddressPart(input.agentId) || "agent"
@@ -523,7 +528,9 @@ export function ensureMailboxRegistry(input: {
   let addedMailbox = false
   let mailbox = registry.mailboxes.find((entry) => entry.agentId === agentId)
   if (mailbox) {
-    requireExistingPrivateKey(keys, mailbox.keyId, `mailbox ${mailbox.canonicalAddress}`)
+    if (input.requireExistingKeys !== false) {
+      requireExistingPrivateKey(keys, mailbox.keyId, `mailbox ${mailbox.canonicalAddress}`)
+    }
   } else {
     const mailboxKey = generateMailKeyPair(`${agentId}-native`)
     mailbox = {
@@ -549,7 +556,9 @@ export function ensureMailboxRegistry(input: {
       normalizeMailAddress(grant.ownerEmail) === ownerEmail &&
       grant.source.toLowerCase() === source)
     if (existing) {
-      requireExistingPrivateKey(keys, existing.keyId, `source grant ${existing.aliasAddress}`)
+      if (input.requireExistingKeys !== false) {
+        requireExistingPrivateKey(keys, existing.keyId, `source grant ${existing.aliasAddress}`)
+      }
       sourceAlias = existing.aliasAddress
     } else {
       const grantKey = generateMailKeyPair(`${agentId}-${source}`)
@@ -582,6 +591,25 @@ export function ensureMailboxRegistry(input: {
     sourceAlias,
     addedMailbox,
     addedSourceGrant,
+  }
+}
+
+export function ensurePublicMailboxRegistry(input: {
+  agentId: string
+  domain?: string
+  registry?: MailroomRegistry
+  ownerEmail?: string
+  source?: string
+  sourceTag?: string
+}): MailroomPublicEnsureResult {
+  const ensured = ensureMailboxRegistry({
+    ...input,
+    keys: {},
+    requireExistingKeys: false,
+  })
+  return {
+    ...ensured,
+    generatedPrivateKeys: ensured.keys,
   }
 }
 

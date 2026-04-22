@@ -6,8 +6,14 @@ param location string = resourceGroup().location
 @maxLength(16)
 param environmentName string = 'prod'
 
+@description('Azure Container Registry name. Must be globally unique.')
+param containerRegistryName string = toLower(replace('ourowork${environmentName}${uniqueString(subscription().id, resourceGroup().id)}', '-', ''))
+
 @description('Container image for apps/mail-ingress.')
 param mailIngressImage string
+
+@description('Container image for apps/mail-control.')
+param mailControlImage string
 
 @description('Container image for apps/vault-control.')
 param vaultControlImage string
@@ -15,7 +21,11 @@ param vaultControlImage string
 @description('Vaultwarden/Bitwarden server URL used by vault-control.')
 param vaultServerUrl string = 'https://vault.ouroboros.bot'
 
-@description('Bearer token for vault-control. Pass from a secure operator shell or Key Vault-backed deployment.')
+@description('Bearer token for mail-control.')
+@secure()
+param mailControlAdminToken string
+
+@description('Bearer token for vault-control.')
 @secure()
 param vaultControlAdminToken string
 
@@ -24,6 +34,9 @@ param mailDomain string = 'ouro.bot'
 
 @description('Mail storage container name.')
 param mailContainerName string = 'mailroom'
+
+@description('Mail registry blob name.')
+param mailRegistryBlob string = 'registry/mailroom.json'
 
 @description('Virtual network address prefix for the Container Apps environment.')
 param virtualNetworkAddressPrefix string = '10.42.0.0/16'
@@ -40,9 +53,42 @@ param mailSmtpPort int = 2525
 @description('Externally exposed SMTP TCP port. Use 25 only after provider/network proof.')
 param mailExposedSmtpPort int = 2525
 
+@description('Minimum mail ingress replicas. Keep at least one for SMTP responsiveness.')
+@minValue(1)
+param mailIngressMinReplicas int = 1
+
+@description('Maximum mail ingress replicas.')
+@minValue(1)
+param mailIngressMaxReplicas int = 5
+
 var prefix = 'ouro-${environmentName}'
 var storageName = toLower(replace('${prefix}${uniqueString(resourceGroup().id)}', '-', ''))
 var blobContributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+var acrPullRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
+
+resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
+  name: containerRegistryName
+  location: location
+  sku: {
+    name: 'Basic'
+  }
+  properties: {
+    adminUserEnabled: false
+    publicNetworkAccess: 'Enabled'
+    networkRuleBypassOptions: 'AzureServices'
+  }
+}
+
+resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+  name: '${prefix}-logs'
+  location: location
+  properties: {
+    sku: {
+      name: 'PerGB2018'
+    }
+    retentionInDays: 30
+  }
+}
 
 resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: storageName
@@ -108,6 +154,16 @@ resource mailBlobAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
+resource acrPullAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(registry.id, identity.id, acrPullRoleId)
+  scope: registry
+  properties: {
+    roleDefinitionId: acrPullRoleId
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 resource environment 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: '${prefix}-cae'
   location: location
@@ -115,6 +171,13 @@ resource environment 'Microsoft.App/managedEnvironments@2024-03-01' = {
     vnetConfiguration: {
       infrastructureSubnetId: infrastructureSubnet.id
       internal: false
+    }
+    appLogsConfiguration: {
+      destination: 'log-analytics'
+      logAnalyticsConfiguration: {
+        customerId: logs.properties.customerId
+        sharedKey: logs.listKeys().primarySharedKey
+      }
     }
     workloadProfiles: [
       {
@@ -139,6 +202,12 @@ resource mailIngress 'Microsoft.App/containerApps@2024-03-01' = {
     workloadProfileName: 'Consumption'
     configuration: {
       activeRevisionsMode: 'Single'
+      registries: [
+        {
+          server: registry.properties.loginServer
+          identity: identity.id
+        }
+      ]
       ingress: {
         external: true
         transport: 'http'
@@ -165,12 +234,16 @@ resource mailIngress 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'mail-ingress'
           image: mailIngressImage
           args: [
-            '--registry-base64'
-            '__REGISTRY_BASE64_FROM_CONTROL_PLANE__'
+            '--registry-azure-account-url'
+            'https://${storage.name}.blob.${az.environment().suffixes.storage}'
+            '--registry-container'
+            mailContainerName
+            '--registry-blob'
+            mailRegistryBlob
+            '--registry-domain'
+            mailDomain
             '--azure-account-url'
             'https://${storage.name}.blob.${az.environment().suffixes.storage}'
-            '--azure-container'
-            mailContainerName
             '--azure-managed-identity-client-id'
             identity.properties.clientId
             '--smtp-port'
@@ -179,8 +252,8 @@ resource mailIngress 'Microsoft.App/containerApps@2024-03-01' = {
             string(mailHttpPort)
           ]
           resources: {
-            cpu: json('0.25')
-            memory: '0.5Gi'
+            cpu: json('0.5')
+            memory: '1Gi'
           }
           probes: [
             {
@@ -192,6 +265,115 @@ resource mailIngress 'Microsoft.App/containerApps@2024-03-01' = {
               initialDelaySeconds: 5
               periodSeconds: 15
             }
+            {
+              type: 'Liveness'
+              httpGet: {
+                path: '/health'
+                port: mailHttpPort
+              }
+              initialDelaySeconds: 30
+              periodSeconds: 30
+            }
+          ]
+        }
+      ]
+      scale: {
+        minReplicas: mailIngressMinReplicas
+        maxReplicas: mailIngressMaxReplicas
+      }
+    }
+  }
+  dependsOn: [
+    acrPullAccess
+    mailBlobAccess
+    mailContainer
+  ]
+}
+
+resource mailControl 'Microsoft.App/containerApps@2024-03-01' = {
+  name: '${prefix}-mail-control'
+  location: location
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${identity.id}': {}
+    }
+  }
+  properties: {
+    environmentId: environment.id
+    workloadProfileName: 'Consumption'
+    configuration: {
+      activeRevisionsMode: 'Single'
+      registries: [
+        {
+          server: registry.properties.loginServer
+          identity: identity.id
+        }
+      ]
+      secrets: [
+        {
+          name: 'mail-control-admin-token'
+          value: mailControlAdminToken
+        }
+      ]
+      ingress: {
+        external: true
+        transport: 'http'
+        targetPort: 8080
+        allowInsecure: false
+        traffic: [
+          {
+            latestRevision: true
+            weight: 100
+          }
+        ]
+      }
+    }
+    template: {
+      containers: [
+        {
+          name: 'mail-control'
+          image: mailControlImage
+          args: [
+            '--azure-account-url'
+            'https://${storage.name}.blob.${az.environment().suffixes.storage}'
+            '--azure-container'
+            mailContainerName
+            '--azure-managed-identity-client-id'
+            identity.properties.clientId
+            '--registry-container'
+            mailContainerName
+            '--registry-blob'
+            mailRegistryBlob
+            '--registry-domain'
+            mailDomain
+            '--admin-token-file'
+            '/mnt/secrets/mail-control-admin-token'
+            '--allowed-email-domain'
+            mailDomain
+            '--port'
+            '8080'
+          ]
+          resources: {
+            cpu: json('0.25')
+            memory: '0.5Gi'
+          }
+          volumeMounts: [
+            {
+              volumeName: 'control-secrets'
+              mountPath: '/mnt/secrets'
+            }
+          ]
+          probes: [
+            {
+              type: 'Readiness'
+              httpGet: {
+                path: '/health'
+                port: 8080
+              }
+              initialDelaySeconds: 5
+              periodSeconds: 15
+            }
           ]
         }
       ]
@@ -199,9 +381,22 @@ resource mailIngress 'Microsoft.App/containerApps@2024-03-01' = {
         minReplicas: 1
         maxReplicas: 3
       }
+      volumes: [
+        {
+          name: 'control-secrets'
+          storageType: 'Secret'
+          secrets: [
+            {
+              secretRef: 'mail-control-admin-token'
+              path: 'mail-control-admin-token'
+            }
+          ]
+        }
+      ]
     }
   }
   dependsOn: [
+    acrPullAccess
     mailBlobAccess
     mailContainer
   ]
@@ -221,6 +416,12 @@ resource vaultControl 'Microsoft.App/containerApps@2024-03-01' = {
     workloadProfileName: 'Consumption'
     configuration: {
       activeRevisionsMode: 'Single'
+      registries: [
+        {
+          server: registry.properties.loginServer
+          identity: identity.id
+        }
+      ]
       secrets: [
         {
           name: 'vault-control-admin-token'
@@ -228,7 +429,7 @@ resource vaultControl 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       ingress: {
-        external: false
+        external: true
         transport: 'http'
         targetPort: 8080
         allowInsecure: false
@@ -296,9 +497,15 @@ resource vaultControl 'Microsoft.App/containerApps@2024-03-01' = {
       ]
     }
   }
+  dependsOn: [
+    acrPullAccess
+  ]
 }
 
+output containerRegistryName string = registry.name
+output containerRegistryLoginServer string = registry.properties.loginServer
 output mailIngressFqdn string = mailIngress.properties.configuration.ingress.fqdn
 output mailSmtpPort int = mailExposedSmtpPort
 output mailStorageAccountUrl string = 'https://${storage.name}.blob.${az.environment().suffixes.storage}'
-output vaultControlInternalFqdn string = vaultControl.properties.configuration.ingress.fqdn
+output mailControlFqdn string = mailControl.properties.configuration.ingress.fqdn
+output vaultControlFqdn string = vaultControl.properties.configuration.ingress.fqdn

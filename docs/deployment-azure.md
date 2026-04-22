@@ -5,7 +5,9 @@ The Azure template in `infra/azure/main.bicep` deploys the hosted substrate prim
 - Azure Blob Storage for encrypted mail objects.
 - A user-assigned managed identity for services.
 - A VNet plus delegated Container Apps subnet for external TCP ingress.
-- Azure Container Apps for Mail ingress and Vault control.
+- Azure Container Apps for Mail ingress, Mail control, and Vault control.
+- Azure Container Registry for deployable service images.
+- Log Analytics for Container Apps logs.
 - A Storage Blob Data Contributor role assignment for Mail ingress.
 
 ## Container Apps Ingress
@@ -14,19 +16,16 @@ Mail ingress exposes HTTP health on the app's primary HTTP ingress and SMTP as a
 
 ## Deploy
 
+Use the manual **Deploy Azure** GitHub workflow after bootstrap:
+
 ```bash
-az deployment group create \
-  --resource-group <resource-group> \
-  --template-file infra/azure/main.bicep \
-  --parameters \
-    location=<region> \
-    mailIngressImage=<registry>/ouro-mail-ingress:<tag> \
-    vaultControlImage=<registry>/ouro-vault-control:<tag> \
-    vaultServerUrl=https://vault.ouroboros.bot \
-    vaultControlAdminToken=<human-generated-token>
+scripts/bootstrap-azure-github-oidc.sh ouroborosbot/ouro-work-substrate rg-ouro-work-substrate eastus2 prod
+gh secret set MAIL_CONTROL_ADMIN_TOKEN --repo ouroborosbot/ouro-work-substrate
+gh secret set VAULT_CONTROL_ADMIN_TOKEN --repo ouroborosbot/ouro-work-substrate
+gh workflow run deploy-azure.yml --repo ouroborosbot/ouro-work-substrate
 ```
 
-The template intentionally takes the control token as a deployment parameter so production can later move it into Key Vault without changing service code. Do not commit token values.
+The workflow bootstraps ACR, builds and pushes all service images, then deploys Container Apps through Bicep. Control tokens are GitHub secrets passed as secure Bicep parameters; do not commit token values.
 
 ## DNS
 

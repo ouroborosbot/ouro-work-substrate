@@ -6,6 +6,7 @@ import {
   decryptMailPayload,
   decryptStoredMailMessage,
   ensureMailboxRegistry,
+  ensurePublicMailboxRegistry,
   normalizeMailAddress,
   resolveMailAddress,
   sourceAliasForOwner,
@@ -40,6 +41,27 @@ describe("work protocol mail", () => {
     expect(second.addedSourceGrant).toBe(false)
     expect(second.mailboxAddress).toBe("slugger@ouro.bot")
     expect(second.sourceAlias).toBe("me.mendelow.ari.slugger@ouro.bot")
+  })
+
+  it("supports public registry control without retaining existing private keys", () => {
+    const first = ensurePublicMailboxRegistry({
+      agentId: "slugger",
+      ownerEmail: "ari@mendelow.me",
+      source: "hey",
+    })
+    const second = ensurePublicMailboxRegistry({
+      agentId: "slugger",
+      ownerEmail: "ari@mendelow.me",
+      source: "hey",
+      registry: first.registry,
+    })
+
+    expect(Object.keys(first.generatedPrivateKeys)).toHaveLength(2)
+    expect(first.addedMailbox).toBe(true)
+    expect(first.addedSourceGrant).toBe(true)
+    expect(second.generatedPrivateKeys).toEqual({})
+    expect(second.addedMailbox).toBe(false)
+    expect(second.addedSourceGrant).toBe(false)
   })
 
   it("encrypts raw and private mail for the agent-owned key", () => {

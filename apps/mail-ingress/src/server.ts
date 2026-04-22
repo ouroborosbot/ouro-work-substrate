@@ -7,14 +7,14 @@ import {
   snippetText,
   type MailAuthenticationState,
   type MailAuthenticationSummary,
-  type MailroomRegistry,
   type PrivateMailEnvelope,
 } from "@ouro/work-protocol"
 import { ingestRawMailToStore, type MailroomStore } from "./store"
 import { logEvent } from "./log"
+import type { MailroomRegistryProvider } from "./registry"
 
 export interface MailIngressOptions {
-  registry: MailroomRegistry
+  registryProvider: MailroomRegistryProvider
   store: MailroomStore
   maxMessageBytes?: number
 }
@@ -114,27 +114,33 @@ export function createMailIngressSmtpServer(options: MailIngressOptions): SMTPSe
     disabledCommands: ["AUTH", "STARTTLS"],
     logger: false,
     onRcptTo(address, _session, callback) {
-      const normalized = normalizeMailAddress(address.address)
-      const resolved = resolveMailAddress(options.registry, normalized)
-      if (!resolved) {
-        const error = new Error(`unknown recipient ${normalized}`) as Error & { responseCode?: number }
-        error.responseCode = 550
-        logEvent({
-          component: "mail-ingress",
-          event: "recipient_rejected",
-          message: "smtp recipient rejected",
-          meta: { address: normalized },
+      void options.registryProvider.current()
+        .then((registry) => {
+          const normalized = normalizeMailAddress(address.address)
+          const resolved = resolveMailAddress(registry, normalized)
+          if (!resolved) {
+            const error = new Error(`unknown recipient ${normalized}`) as Error & { responseCode?: number }
+            error.responseCode = 550
+            logEvent({
+              component: "mail-ingress",
+              event: "recipient_rejected",
+              message: "smtp recipient rejected",
+              meta: { address: normalized },
+            })
+            callback(error)
+            return
+          }
+          logEvent({
+            component: "mail-ingress",
+            event: "recipient_accepted",
+            message: "smtp recipient accepted",
+            meta: { address: normalized, agentId: resolved.agentId },
+          })
+          callback()
         })
-        callback(error)
-        return
-      }
-      logEvent({
-        component: "mail-ingress",
-        event: "recipient_accepted",
-        message: "smtp recipient accepted",
-        meta: { address: normalized, agentId: resolved.agentId },
-      })
-      callback()
+        .catch((error: unknown) => {
+          callback(error instanceof Error ? error : new Error(String(error)))
+        })
     },
     async onData(stream, session, callback) {
       try {
@@ -142,8 +148,9 @@ export function createMailIngressSmtpServer(options: MailIngressOptions): SMTPSe
         const mailFrom = session.envelope.mailFrom
         const rawMailFrom = mailFrom === false ? "" : mailFrom?.address ?? ""
         const parsed = await parsePrivateMailEnvelope(raw)
+        const registry = await options.registryProvider.current()
         await ingestRawMailToStore({
-          registry: options.registry,
+          registry,
           store: options.store,
           envelope: {
             mailFrom: rawMailFrom ? normalizeMailAddress(rawMailFrom) : "",
@@ -170,25 +177,38 @@ export function createMailIngressSmtpServer(options: MailIngressOptions): SMTPSe
   return server
 }
 
-export function createMailIngressHealthServer(registry: MailroomRegistry): http.Server {
+export function createMailIngressHealthServer(registryProvider: MailroomRegistryProvider): http.Server {
   return http.createServer((request, response) => {
     if (request.url !== "/health") {
       response.writeHead(404, { "content-type": "application/json" })
       response.end(JSON.stringify({ ok: false, error: "not found" }))
       return
     }
-    const body = JSON.stringify({
-      ok: true,
-      service: "ouro-mail-ingress",
-      domain: registry.domain,
-      mailboxes: registry.mailboxes.length,
-      sourceGrants: registry.sourceGrants.length,
+    void registryProvider.current().then((registry) => {
+      const body = JSON.stringify({
+        ok: true,
+        service: "ouro-mail-ingress",
+        domain: registry.domain,
+        mailboxes: registry.mailboxes.length,
+        sourceGrants: registry.sourceGrants.length,
+      })
+      response.writeHead(200, {
+        "content-type": "application/json",
+        "content-length": Buffer.byteLength(body),
+      })
+      response.end(body)
+    }).catch((error: unknown) => {
+      const body = JSON.stringify({
+        ok: false,
+        service: "ouro-mail-ingress",
+        error: error instanceof Error ? error.message : String(error),
+      })
+      response.writeHead(503, {
+        "content-type": "application/json",
+        "content-length": Buffer.byteLength(body),
+      })
+      response.end(body)
     })
-    response.writeHead(200, {
-      "content-type": "application/json",
-      "content-length": Buffer.byteLength(body),
-    })
-    response.end(body)
   })
 }
 
@@ -198,7 +218,7 @@ export function startMailIngress(options: MailIngressOptions & {
   host?: string
 }): MailIngressServers {
   const smtp = createMailIngressSmtpServer(options)
-  const health = createMailIngressHealthServer(options.registry)
+  const health = createMailIngressHealthServer(options.registryProvider)
   const host = options.host ?? "0.0.0.0"
   smtp.listen(options.smtpPort, host)
   health.listen(options.httpPort, host)

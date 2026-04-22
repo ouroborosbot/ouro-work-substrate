@@ -17,5 +17,7 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: az bicep build --file infra/azure/main.bicep
+      - run: az bicep build --file infra/azure/registry.bicep
+      - run: docker build -f apps/mail-control/Dockerfile -t ouro-mail-control:ci .
       - run: docker build -f apps/mail-ingress/Dockerfile -t ouro-mail-ingress:ci .
       - run: docker build -f apps/vault-control/Dockerfile -t ouro-vault-control:ci .

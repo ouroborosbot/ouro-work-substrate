@@ -7,6 +7,7 @@ Ouro Work gives each agent a private work account. Mail and vault are coupled be
 - Agents can receive mail at their native `agent@ouro.bot` address.
 - Delegated human mail enters through explicit source grants such as `me.mendelow.ari.slugger@ouro.bot`.
 - The hosted ingress stores encrypted message bodies and raw MIME. Private keys live in the agent vault, not in the hosted service.
+- Mail Control writes the public registry and returns newly generated private keys exactly once to the trusted caller. Those keys must immediately be stored in the owning agent vault.
 - Unknown native inbound mail lands in Screener. Discard means "move to a recoverable drawer", not reject or bounce.
 - Vault account creation is a control-plane action. It is authenticated, rate-limited, domain-limited, and designed to avoid logging secrets.
 
@@ -20,11 +21,17 @@ flowchart LR
   Tools --> MailStore["Ouro Mail store"]
   Ingress["apps/mail-ingress"] --> MailStore
   Control["apps/vault-control"] --> Vaultwarden["Vaultwarden identity API"]
+  MailControl["apps/mail-control"] --> MailStore
+  Tools --> MailControl
   Protocol["packages/work-protocol"] --> Ingress
   Protocol --> Tools
 ```
 
 The harness may retain local development stores and readers, but hosted service source belongs in this repository.
+
+## Mail Control
+
+`apps/mail-control` is the scalable mailbox onboarding path. It owns no durable private keys. It loads the current public registry, adds missing native mailboxes and source grants with optimistic registry writes, and returns only the newly generated private keys in the response. The caller is responsible for writing those private keys into the agent vault before reporting setup complete.
 
 ## Mail Data Model
 
@@ -38,4 +45,3 @@ This keeps hosted ingress capable of routing and storing mail without being able
 ## Vault Control Model
 
 `apps/vault-control` receives authenticated requests from an Ouro control plane or trusted operator automation. It creates Vaultwarden accounts via the Bitwarden registration protocol and returns only operational status. The caller owns generated passwords and stores them in the agent vault; the control service does not persist them.
-
