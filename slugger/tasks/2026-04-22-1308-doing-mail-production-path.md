@@ -1,6 +1,6 @@
 # Doing: Mail Production Path
 
-**Status**: READY_FOR_EXECUTION
+**Status**: in-progress
 **Execution Mode**: direct
 **Created**: 2026-04-22 14:33
 **Planning**: ./2026-04-22-1308-planning-mail-production-path.md
@@ -61,7 +61,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 
 **CRITICAL: Every unit header MUST start with status emoji (⬜ for new units).**
 
-### ⬜ Unit 0: Workspace And Foundation Baseline
+### 🔄 Unit 0: Workspace And Foundation Baseline
 **What**: Prepare dedicated worktrees/branches for work-substrate and harness, record current dirty-state boundaries, reread foundation task docs, and capture the live baseline for DNS, Azure, GitHub, harness Mail sense, Slugger vault readiness, and deployed services.
 **Output**: Baseline artifact with repo/worktree paths, current commits, live DNS/Azure facts, foundation-doc summary, and immediate blockers.
 **Acceptance**: Baseline proves no user changes were overwritten, names the active remotes/branches, and confirms which human inputs are genuinely missing before implementation begins.
@@ -210,3 +210,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 ## Progress Log
 - 2026-04-22 14:33 Created from planning doc after human waived process gates and foundation mail docs were reread.
 - 2026-04-22 14:34 Fixed unit heading format after template check.
+- 2026-04-22 14:36 Started Unit 0 baseline and worktree setup.
