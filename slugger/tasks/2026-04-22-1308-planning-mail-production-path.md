@@ -1,7 +1,7 @@
 # Planning: Mail Production Path
 
 **Status**: NEEDS_REVIEW
-**Created**: pending initial commit timestamp
+**Created**: 2026-04-22 13:09
 
 ## Goal
 Make Ouro Work mail real end to end: native and delegated inbound mail should reach the hosted mail ingress through a production MX path, and outbound mail should use an authenticated sending path with clear provenance, audit, and human gates.
@@ -85,4 +85,4 @@ Make Ouro Work mail real end to end: native and delegated inbound mail should re
 - Recommended thin slice: first make inbound production receiving true, including provider proof, DNS runbook, smoke test, and explicit human MX action. Then implement outbound relay submission as a separate approved slice using the selected provider/domain strategy.
 
 ## Progress Log
-- pending initial commit timestamp Created
+- 2026-04-22 13:09 Created
