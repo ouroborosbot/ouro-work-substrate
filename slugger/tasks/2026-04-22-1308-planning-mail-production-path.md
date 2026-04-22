@@ -109,7 +109,7 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - Proof port `2525` is reachable; port `25` is not currently exposed and must be proven before MX cutover.
 - Primary inbound plan: expose mail ingress on port `25` in the existing VNet-backed Container Apps environment, point `mx1.ouro.bot` at the environment static IP, then set root MX to `mx1.ouro.bot` only after direct external SMTP proof. Fall back to a dedicated mail edge if this fails.
 - STARTTLS should be included before production MX is declared ready. Plaintext SMTP may remain as opportunistic fallback for senders that do not upgrade, but the service should advertise STARTTLS with a valid MX-host certificate.
-- Porkbun is the DNS provider. Use Porkbun API access for agent-runnable DNS backup/dry-run/apply/rollback once credentials are safely provisioned.
+- Porkbun is the DNS provider. Use Porkbun API access for agent-runnable DNS backup/dry-run/apply/rollback once credentials are safely provisioned. The Porkbun API key pair is account-scoped, so store it as an ops vault item such as `ops/registrars/porkbun/accounts/ari@mendelow.me`; keep domain bindings like `ouro.bot -> <account item>` outside the secret.
 - `ouro account ensure` / `ouro connect mail` creates the delegated forwarding target alias. HEY setup should not create the alias; it should configure HEY to forward to the already verified source-grant alias.
 - Browser automation for HEY is desirable, but auth/MFA/CAPTCHA and final confirmation are human-at-keyboard gates. The automation must be resumable and able to fall back to exact guided steps.
 - Direct outbound SMTP from Azure is not the production sending strategy. Use authenticated provider submission, with ACS Email as the first candidate.
@@ -178,3 +178,4 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - 2026-04-22 13:38 Added human-needed lock list for approvals, secrets, DNS, Azure, HEY, vault, testing, and secret hygiene
 - 2026-04-22 13:39 Clarified the local harness checkout and `ouroborosbot/ouroboros` remote
 - 2026-04-22 14:32 Reviewed foundation mail docs, marked process gates waived, separated native agent mail from delegated human mailbox source, and added policy-governed autonomous native sending
+- 2026-04-22 15:18 Corrected registrar credential boundary: Porkbun is an ops credential, not an `ouro connect` capability, and account-scoped vault item names must not pretend to be domain-scoped.

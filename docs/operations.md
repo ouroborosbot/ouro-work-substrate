@@ -72,6 +72,32 @@ That script creates both accepted GitHub OIDC subjects:
 
 The second one matters because the deploy workflow uses the `prod` GitHub Environment.
 
+## Registrar Ops Credentials
+
+Registrar API credentials are operational secrets, not harness connectors. Store them in the owning agent vault under an `ops/...` item and keep domain allowlists in this repository's DNS workflow or runbook.
+
+For Porkbun, the API key pair is account-scoped. A domain's Porkbun API Access toggle only allows that account-level key to operate on that domain; it is not the credential identity.
+
+Use the harness hidden prompt:
+
+```bash
+ouro vault ops porkbun set --agent slugger --account ari@mendelow.me
+```
+
+That stores the structured secret at:
+
+```text
+vault:slugger:ops/registrars/porkbun/accounts/ari@mendelow.me
+```
+
+DNS automation must bind domains to that item outside the secret, for example:
+
+```text
+ouro.bot -> ops/registrars/porkbun/accounts/ari@mendelow.me
+```
+
+Do not name account-level keys after domains, and do not use `ouro connect` for registrar credentials unless the harness later owns a first-class registrar capability with verification and runtime semantics.
+
 ## Deploy
 
 Runtime, infrastructure, and workflow changes merged to `main` deploy automatically after the `CI` workflow completes successfully. Docs-only changes pass CI but skip Azure rollout. When deployment is needed, the workflow checks out the exact CI-tested commit, builds all service images, pushes them to ACR, and applies the Container Apps Bicep deployment.

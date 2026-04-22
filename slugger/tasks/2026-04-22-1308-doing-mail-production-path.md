@@ -102,7 +102,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Acceptance**: Tests fail until automation can prove safe DNS mutation behavior.
 
 ### ⬜ Unit 3b: DNS And Certificate Automation — Implementation
-**What**: Implement Porkbun DNS automation and certificate flow for `mx1.ouro.bot`, storing credentials only through approved secret paths and preserving unrelated verification records.
+**What**: Implement Porkbun DNS automation and certificate flow for `mx1.ouro.bot`, resolving Porkbun account credentials from `vault:slugger:ops/registrars/porkbun/accounts/<account>` and preserving unrelated verification records.
 **Output**: Scripts/CLI/workflow, docs, and secret hygiene checks.
 **Acceptance**: With human-entered Porkbun credentials, automation can retrieve current records and produce a safe dry-run; apply/rollback are available for cutover.
 
@@ -212,3 +212,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 14:34 Fixed unit heading format after template check.
 - 2026-04-22 14:36 Started Unit 0 baseline and worktree setup.
 - 2026-04-22 14:45 Unit 0 complete: recorded dedicated worktrees, foundation docs, DNS/Azure/GitHub/harness baseline, expected broken E2E surfaces, and the genuinely human-needed checklist.
+- 2026-04-22 15:18 Corrected Porkbun secret ergonomics: `ouro connect` is only for harness-managed capabilities; registrar credentials use `ouro vault ops porkbun set` and account-scoped `ops/registrars/porkbun/accounts/<account>` vault items.
