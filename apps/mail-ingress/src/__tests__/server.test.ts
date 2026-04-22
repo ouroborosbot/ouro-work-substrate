@@ -1,7 +1,12 @@
 import * as http from "node:http"
+import * as fs from "node:fs"
+import * as net from "node:net"
+import * as os from "node:os"
+import * as path from "node:path"
 import { describe, expect, it } from "vitest"
 import { ensureMailboxRegistry } from "@ouro/work-protocol"
-import { createMailIngressHealthServer, parsePrivateMailEnvelope } from "../server"
+import { FileMailroomStore } from "../store"
+import { createMailIngressHealthServer, createMailIngressSmtpServer, parsePrivateMailEnvelope, startMailIngress } from "../server"
 import { StaticRegistryProvider } from "../registry"
 
 function listen(server: http.Server): Promise<number> {
@@ -11,6 +16,49 @@ function listen(server: http.Server): Promise<number> {
       resolve(typeof address === "object" && address ? address.port : 0)
     })
   })
+}
+
+function listenSmtp(server: { listen(port: number, host: string, callback: () => void): void; server?: { address(): unknown } }): Promise<number> {
+  return new Promise((resolve) => {
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.server?.address()
+      resolve(typeof address === "object" && address && "port" in address ? Number(address.port) : 0)
+    })
+  })
+}
+
+function closeSmtp(server: { close(callback: () => void): void }): Promise<void> {
+  return new Promise((resolve) => server.close(resolve))
+}
+
+async function smtpExchange(port: number, steps: Array<{ send: string; expect: RegExp }>): Promise<string> {
+  const socket = net.createConnection({ host: "127.0.0.1", port })
+  let transcript = ""
+  socket.on("data", (chunk) => {
+    transcript += chunk.toString("utf-8")
+  })
+  function waitFor(pattern: RegExp, startAt = 0): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const deadline = setTimeout(() => reject(new Error(`Timed out waiting for ${pattern}; transcript: ${transcript}`)), 1500)
+      const check = () => {
+        if (pattern.test(transcript.slice(startAt))) {
+          clearTimeout(deadline)
+          socket.off("data", check)
+          resolve()
+        }
+      }
+      socket.on("data", check)
+      check()
+    })
+  }
+  await waitFor(/^220/m)
+  for (const step of steps) {
+    const startAt = transcript.length
+    socket.write(step.send)
+    await waitFor(step.expect, startAt)
+  }
+  socket.end()
+  return transcript
 }
 
 describe("mail ingress server", () => {
@@ -33,6 +81,40 @@ describe("mail ingress server", () => {
     }
   })
 
+  it("reports unhealthy registry reads", async () => {
+    const server = createMailIngressHealthServer({
+      async current() {
+        throw "registry unavailable"
+      },
+    })
+    const port = await listen(server)
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/health`)
+      const body = await response.json() as Record<string, unknown>
+      expect(response.status).toBe(503)
+      expect(body.error).toBe("registry unavailable")
+      const missing = await fetch(`http://127.0.0.1:${port}/missing`)
+      expect(missing.status).toBe(404)
+    } finally {
+      server.close()
+    }
+
+    const errorServer = createMailIngressHealthServer({
+      async current() {
+        throw new Error("registry exploded")
+      },
+    })
+    const errorPort = await listen(errorServer)
+    try {
+      const response = await fetch(`http://127.0.0.1:${errorPort}/health`)
+      const body = await response.json() as Record<string, unknown>
+      expect(response.status).toBe(503)
+      expect(body.error).toBe("registry exploded")
+    } finally {
+      errorServer.close()
+    }
+  })
+
   it("parses mail into a private envelope with untrusted content warning", async () => {
     const parsed = await parsePrivateMailEnvelope(Buffer.from([
       "From: Ari <ari@mendelow.me>",
@@ -46,5 +128,231 @@ describe("mail ingress server", () => {
     expect(parsed.privateEnvelope.subject).toBe("Plans")
     expect(parsed.privateEnvelope.snippet).toBe("Please check this itinerary.")
     expect(parsed.privateEnvelope.untrustedContentWarning).toContain("untrusted external data")
+  })
+
+  it("parses richer MIME envelopes and authentication states", async () => {
+    const parsed = await parsePrivateMailEnvelope(Buffer.from([
+      "Message-ID: <rich@example.com>",
+      "Date: Wed, 22 Apr 2026 19:00:00 +0000",
+      "Authentication-Results: mx.ouro.bot; spf=fail smtp.mailfrom=example.com; dkim=softfail; dmarc=neutral; arc=weird",
+      "From: Sender <sender@example.com>",
+      "To: slugger@ouro.bot",
+      "Cc: Copy <copy@example.com>",
+      "Subject: Rich",
+      "Content-Type: multipart/mixed; boundary=frontier",
+      "",
+      "--frontier",
+      "Content-Type: text/html; charset=utf-8",
+      "",
+      "<p>Hello HTML</p>",
+      "--frontier",
+      "Content-Type: application/octet-stream",
+      "Content-Disposition: attachment",
+      "",
+      "abc",
+      "--frontier--",
+    ].join("\r\n"), "utf-8"))
+
+    expect(parsed.privateEnvelope.messageId).toBe("<rich@example.com>")
+    expect(parsed.privateEnvelope.date).toBe("2026-04-22T19:00:00.000Z")
+    expect(parsed.privateEnvelope.html).toContain("Hello HTML")
+    expect(parsed.privateEnvelope.cc).toEqual(["copy@example.com"])
+    expect(parsed.privateEnvelope.attachments[0]).toEqual(expect.objectContaining({
+      filename: "(unnamed attachment)",
+      contentType: "application/octet-stream",
+    }))
+    expect(parsed.privateEnvelope.snippet).toBe("Rich")
+    expect(parsed.authentication).toEqual({
+      spf: "fail",
+      dkim: "softfail",
+      dmarc: "neutral",
+      arc: "unknown",
+    })
+
+    const sparse = await parsePrivateMailEnvelope(Buffer.from([
+      "From: Friends: Alice <alice@example.com>, Bob <bob@example.com>;",
+      "To: undisclosed-recipients:;",
+      "",
+      "",
+    ].join("\r\n"), "utf-8"))
+    expect(sparse.privateEnvelope.from).toEqual(["alice@example.com", "bob@example.com"])
+    expect(sparse.privateEnvelope.to).toEqual([])
+    expect(sparse.privateEnvelope.subject).toBe("")
+    expect(sparse.privateEnvelope.snippet).toBe("(no text body)")
+  })
+
+  it("accepts known SMTP recipients and stores encrypted mail", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-smtp-"))
+    const registry = ensureMailboxRegistry({ agentId: "slugger" }).registry
+    const store = new FileMailroomStore(dir)
+    const server = createMailIngressSmtpServer({
+      registryProvider: new StaticRegistryProvider(registry),
+      store,
+    })
+    const port = await listenSmtp(server)
+    try {
+      await smtpExchange(port, [
+        { send: "EHLO localhost\r\n", expect: /^250/m },
+        { send: "MAIL FROM:<ari@mendelow.me>\r\n", expect: /^250/m },
+        { send: "RCPT TO:<slugger@ouro.bot>\r\n", expect: /^250/m },
+        { send: "DATA\r\n", expect: /^354/m },
+        {
+          send: [
+            "Authentication-Results: mx.ouro.bot; spf=pass smtp.mailfrom=mendelow.me",
+            "From: Ari <ari@mendelow.me>",
+            "To: Slugger <slugger@ouro.bot>",
+            "Subject: Hello",
+            "",
+            "Hello from SMTP.",
+            ".",
+            "",
+          ].join("\r\n"),
+          expect: /^250/m,
+        },
+        { send: "QUIT\r\n", expect: /^221/m },
+      ])
+      expect(fs.readdirSync(path.join(dir, "messages"))).toHaveLength(1)
+      expect(fs.readdirSync(path.join(dir, "candidates"))).toHaveLength(1)
+    } finally {
+      await closeSmtp(server)
+    }
+  })
+
+  it("rejects unknown SMTP recipients", async () => {
+    const registry = ensureMailboxRegistry({ agentId: "slugger" }).registry
+    const server = createMailIngressSmtpServer({
+      registryProvider: new StaticRegistryProvider(registry),
+      store: new FileMailroomStore(fs.mkdtempSync(path.join(os.tmpdir(), "ouro-smtp-reject-"))),
+    })
+    const port = await listenSmtp(server)
+    try {
+      const transcript = await smtpExchange(port, [
+        { send: "EHLO localhost\r\n", expect: /^250/m },
+        { send: "MAIL FROM:<ari@mendelow.me>\r\n", expect: /^250/m },
+        { send: "RCPT TO:<nobody@ouro.bot>\r\n", expect: /^550/m },
+        { send: "QUIT\r\n", expect: /^221/m },
+      ])
+      expect(transcript).toContain("unknown recipient nobody@ouro.bot")
+    } finally {
+      await closeSmtp(server)
+    }
+  })
+
+  it("surfaces registry and data errors through SMTP responses", async () => {
+    const registry = ensureMailboxRegistry({ agentId: "slugger" }).registry
+    const rejectingRcpt = createMailIngressSmtpServer({
+      registryProvider: {
+        async current() {
+          throw "registry failed"
+        },
+      },
+      store: new FileMailroomStore(fs.mkdtempSync(path.join(os.tmpdir(), "ouro-smtp-registry-error-"))),
+    })
+    const rcptPort = await listenSmtp(rejectingRcpt)
+    try {
+      const transcript = await smtpExchange(rcptPort, [
+        { send: "EHLO localhost\r\n", expect: /^250/m },
+        { send: "MAIL FROM:<ari@mendelow.me>\r\n", expect: /^250/m },
+        { send: "RCPT TO:<slugger@ouro.bot>\r\n", expect: /^[45]\d\d/m },
+        { send: "QUIT\r\n", expect: /^221/m },
+      ])
+      expect(transcript).toContain("registry failed")
+    } finally {
+      await closeSmtp(rejectingRcpt)
+    }
+
+    const errorRcpt = createMailIngressSmtpServer({
+      registryProvider: {
+        async current() {
+          throw new Error("registry exploded")
+        },
+      },
+      store: new FileMailroomStore(fs.mkdtempSync(path.join(os.tmpdir(), "ouro-smtp-registry-error-object-"))),
+    })
+    const errorPort = await listenSmtp(errorRcpt)
+    try {
+      const transcript = await smtpExchange(errorPort, [
+        { send: "EHLO localhost\r\n", expect: /^250/m },
+        { send: "MAIL FROM:<ari@mendelow.me>\r\n", expect: /^250/m },
+        { send: "RCPT TO:<slugger@ouro.bot>\r\n", expect: /^[45]\d\d/m },
+        { send: "QUIT\r\n", expect: /^221/m },
+      ])
+      expect(transcript).toContain("registry exploded")
+    } finally {
+      await closeSmtp(errorRcpt)
+    }
+
+    const oversized = createMailIngressSmtpServer({
+      registryProvider: new StaticRegistryProvider(registry),
+      store: new FileMailroomStore(fs.mkdtempSync(path.join(os.tmpdir(), "ouro-smtp-data-error-"))),
+      maxMessageBytes: 12,
+    })
+    const dataPort = await listenSmtp(oversized)
+    try {
+      await smtpExchange(dataPort, [
+        { send: "EHLO localhost\r\n", expect: /^250/m },
+        { send: "MAIL FROM:<>\r\n", expect: /^250/m },
+        { send: "RCPT TO:<slugger@ouro.bot>\r\n", expect: /^250/m },
+        { send: "DATA\r\n", expect: /^354/m },
+        { send: "Subject: Too large\r\n\r\nThis body is too large.\r\n.\r\n", expect: /^[45]\d\d/m },
+      ])
+    } finally {
+      await closeSmtp(oversized)
+    }
+  })
+
+  it("logs data handler failures from store errors", async () => {
+    const registry = ensureMailboxRegistry({ agentId: "slugger" }).registry
+    const server = createMailIngressSmtpServer({
+      registryProvider: new StaticRegistryProvider(registry),
+      store: {
+        async putRawMessage() {
+          throw "store failed"
+        },
+        async getMessage() {
+          return null
+        },
+        async readRawPayload() {
+          return null
+        },
+      },
+    })
+    const port = await listenSmtp(server)
+    try {
+      const transcript = await smtpExchange(port, [
+        { send: "EHLO localhost\r\n", expect: /^250/m },
+        { send: "MAIL FROM:<ari@mendelow.me>\r\n", expect: /^250/m },
+        { send: "RCPT TO:<slugger@ouro.bot>\r\n", expect: /^250/m },
+        { send: "DATA\r\n", expect: /^354/m },
+        { send: "From: ari@mendelow.me\r\nTo: slugger@ouro.bot\r\nSubject: Hi\r\n\r\nHi\r\n.\r\n", expect: /^[45]\d\d/m },
+        { send: "QUIT\r\n", expect: /^221/m },
+      ])
+      expect(transcript).toContain("store failed")
+    } finally {
+      await closeSmtp(server)
+    }
+  })
+
+  it("starts SMTP and health servers together", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-start-ingress-"))
+    const registry = ensureMailboxRegistry({ agentId: "slugger" }).registry
+    const servers = startMailIngress({
+      registryProvider: new StaticRegistryProvider(registry),
+      store: new FileMailroomStore(dir),
+      smtpPort: 0,
+      httpPort: 0,
+    })
+    try {
+      await Promise.all([
+        new Promise((resolve) => servers.smtp.server?.once("listening", resolve)),
+        new Promise((resolve) => servers.health.once("listening", resolve)),
+      ])
+      expect(servers.health.address()).toEqual(expect.objectContaining({ address: "0.0.0.0" }))
+    } finally {
+      await Promise.all([
+        closeSmtp(servers.smtp),
+        new Promise((resolve) => servers.health.close(resolve)),
+      ])
+    }
   })
 })

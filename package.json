@@ -11,15 +11,17 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "test": "npm run build && vitest run",
+    "test:coverage": "npm run build && vitest run --coverage",
     "typecheck": "npm run build",
     "infra:check": "az bicep build --file infra/azure/main.bicep && az bicep build --file infra/azure/registry.bicep && rm -f infra/azure/main.json infra/azure/registry.json",
-    "ci:local": "npm test && npm run infra:check",
+    "ci:local": "npm run test:coverage && npm run infra:check",
     "clean": "rm -rf packages/*/dist apps/*/dist coverage"
   },
   "devDependencies": {
     "@types/mailparser": "^3.4.6",
     "@types/node": "^25.6.0",
     "@types/smtp-server": "^3.5.13",
+    "@vitest/coverage-v8": "^4.1.5",
     "typescript": "^6.0.3",
     "vitest": "^4.0.18"
   },

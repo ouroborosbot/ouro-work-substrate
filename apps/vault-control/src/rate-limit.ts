@@ -10,7 +10,7 @@ export class InMemoryRateLimiter {
   constructor(
     private readonly windowMs: number,
     private readonly max: number,
-    private readonly now: () => number = () => Date.now(),
+    private readonly now: () => number = Date.now,
   ) {}
 
   take(key: string): RateLimitDecision {
@@ -28,4 +28,3 @@ export class InMemoryRateLimiter {
     return { allowed: true, remaining: Math.max(0, this.max - existing.count), resetAt: existing.resetAt }
   }
 }
-

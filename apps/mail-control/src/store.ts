@@ -55,8 +55,9 @@ export class FileMailRegistryStore implements MailRegistryStore {
 async function downloadRegistry(blob: BlockBlobClient, domain: string): Promise<{ registry: MailroomRegistry; etag?: string }> {
   if (!await blob.exists()) return { registry: emptyRegistry(domain) }
   const response = await blob.download()
+  if (!response.readableStreamBody) throw new Error("registry blob download returned no readable stream")
   const chunks: Buffer[] = []
-  for await (const chunk of response.readableStreamBody ?? []) {
+  for await (const chunk of response.readableStreamBody) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
   }
   return {
@@ -103,7 +104,7 @@ export class AzureBlobMailRegistryStore implements MailRegistryStore {
         if (attempt === 2) throw error
       }
     }
+    /* v8 ignore next -- the loop either returns after upload or rethrows the final upload error. */
     throw new Error("mail registry update failed after retries")
   }
 }
-

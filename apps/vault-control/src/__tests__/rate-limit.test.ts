@@ -12,5 +12,10 @@ describe("rate limiter", () => {
     now = 1200
     expect(limiter.take("slugger").allowed).toBe(true)
   })
-})
 
+  it("uses Date.now by default", () => {
+    const limiter = new InMemoryRateLimiter(100, 1)
+
+    expect(limiter.take("slugger").remaining).toBe(0)
+  })
+})
