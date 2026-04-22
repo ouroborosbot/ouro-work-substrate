@@ -1,10 +1,15 @@
 # Planning: Mail Production Path
 
-**Status**: NEEDS_REVIEW
+**Status**: approved
 **Created**: 2026-04-22 13:09
 
 ## Goal
-Bring Agent Mail to full production shape across Ouro Work Substrate and the Ouroboros agent harness: hosted mailbox provisioning, native and delegated inbound mail over real MX, HEY-assisted delegation, authenticated outbound sending, agent-readable encrypted storage, recovery tooling, operations docs, deployment, and live smoke tests.
+Bring Agent Mail to full production shape across Ouro Work Substrate and the Ouroboros agent harness without muddying the two mailbox stories:
+
+1. **Agent-native mail sense**: the agent can autonomously receive and, under explicit policy, send mail as its own `@ouro.bot` identity. This is like iMessage or Teams as a sense, with HEY-inspired Imbox/Screener semantics coupled to the existing trust system.
+2. **Delegated human mailbox source**: the agent has full delegated read access to a human mailbox source, starting with Ari's HEY mailbox, through backfill export/import and all future forwarded mail. This is the executive-assistant lens into the human's mailbox, not the agent's own correspondence and not permission to send as the human by default.
+
+The production work includes hosted mailbox provisioning, native and delegated inbound mail over real MX, HEY-assisted delegation, authenticated outbound sending, agent-readable encrypted storage, recovery tooling, operations docs, deployment, and live smoke tests.
 
 This is full-moon scope. It is not constrained to one PR, one repo, one turn, or an inbound-only slice.
 
@@ -17,13 +22,16 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 
 ### In Scope
 - Make changes in `ouro-work-substrate` and, when needed, the local harness checkout at `/Users/arimendelow/Projects/ouroboros-agent-harness` whose `origin` remote is `ouroborosbot/ouroboros`; keep each repo's planning/branch rules and PR discipline.
+- Preserve the foundation distinction from the prior task docs: native agent correspondence and delegated human mailbox access share Mailroom primitives but have different authority semantics, UI labels, attention behavior, trust rules, and recovery paths.
 - Treat `ouro.bot` as the Ouro Work mail domain and intentionally move away from the current broken Microsoft 365-shaped MX/SPF setup after backup, proof, and explicit cutover approval.
 - Make hosted Mail Control the production provisioning truth for `ouro account ensure` / `ouro connect mail`: public registry in Blob, newly generated private keys returned once, private keys stored immediately in the owning agent vault.
 - Preserve local development setup as an explicit mode, but prevent local-only registry/key generation from being mistaken for production readiness.
 - Keep shared protocol semantics synchronized across repos, especially mailbox records, source-grant aliases, key ids, placements, outbound statuses, and encryption/decryption behavior.
 - Configure the local harness to read and update the hosted Azure Blob mail store through a least-privilege credential stored outside Git and preferably inside the agent vault.
-- Prove native inbound `slugger@ouro.bot` over real SMTP port 25, with unknown native senders landing in Screener.
-- Prove delegated HEY inbound `me.mendelow.ari.slugger@ouro.bot` over real SMTP port 25, with owner/source provenance and Imbox placement.
+- Prove native inbound `slugger@ouro.bot` over real SMTP port 25, with unknown native senders landing in Screener, known/screened-in senders reaching Imbox, and sense attention never injecting raw bodies into prompt context.
+- Prove delegated HEY inbound `me.mendelow.ari.slugger@ouro.bot` over real SMTP port 25, with owner/source provenance, source-scoped policy, and UI/tooling that always identifies it as Ari's HEY mail delegated to Slugger.
+- Backfill Ari's delegated HEY source with export/import, label imported mail as historical/fresh-through material, and avoid flooding Screener/attention during archive import.
+- Make future HEY mail flow through forwarding or HEY for Domains external Extensions into the delegated source alias, with setup state and recovery when forwarding is missing, stale, or lossy.
 - Use the existing Azure Container Apps environment and static IP as the first production inbound candidate: expose SMTP on port 25, create `mx1.ouro.bot` as the MX host, and only fall back to a dedicated mail edge if Container Apps cannot pass the external port-25 proof.
 - Add production SMTP behavior: STARTTLS with a valid certificate for the MX host, explicit max message size, clear transient/permanent SMTP response codes, connection/rate limits, recipient limits, protocol timeouts, and useful logs/metrics.
 - Add Porkbun DNS automation and runbooks: credential setup, current-record backup, dry-run, apply, verification, rollback, and audit notes for A/MX/TXT/CNAME changes.
@@ -32,7 +40,7 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - Add recovery handling for every brittle setup edge: missing Porkbun access, DNS propagation, port-25 exposure failure, Mail Control failure, vault locked/missing, one-time key loss, registry/key drift, HEY forwarding failure, missing forwarded mail, Blob access failure, decryption failure, wrong placement, outbound provider failure, and delivery events.
 - Implement production outbound sending through authenticated provider submission, not direct unauthenticated SMTP from Azure. Azure Communication Services Email is the first candidate because it fits the existing Azure shape and supports SMTP auth, custom-domain sender authentication, and Event Grid delivery reports.
 - Extend outbound records and UI/tooling so `draft`, `submitted`, provider-accepted/sent, delivered, bounced, quarantined/spam-filtered, failed, and event-reconciled states are not collapsed into a misleading `sent`.
-- Keep `mail_send` confirmation-gated and family/self-only; autonomous sending remains disabled until a later explicit human enablement.
+- Implement policy-governed autonomous sending for agent-native mail. The safe shape is: default draft/confirmation for unknown or risky recipients, explicit allow policy for autonomous low-risk native-agent sends, rate/recipient limits, audit, kill switch, and no autonomous send from delegated human sources.
 - Add ACS/domain-auth DNS automation and verification for SPF, DKIM, DKIM2 where required, and DMARC policy/reporting appropriate for a young production mail domain.
 - Wire ACS/Event Grid delivery reports or an equivalent provider callback path into auditable outbound records.
 - Update operations, deployment, account lifecycle, harness setup, troubleshooting, and golden-path validation docs so a future agent can recover without re-discovering the edges.
@@ -42,10 +50,9 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - Building a full read/write webmail client or destructive mail controls.
 - Letting the hosted service read private mail bodies or retain private mail keys.
 - Treating HEY forwarding as lossless or permanent; HEY itself warns that forwarding can miss spam-classified mail and can be affected by mail-authentication behavior.
-- Sending as Ari or another human identity unless a separate explicit delegated-send design is approved. Full-moon outbound means Slugger can send confirmed mail from the agent mail identity first.
-- Silently bypassing browser auth, MFA, registrar confirmation, or final production cutover approval. The agent may execute approved API/browser steps, but the human remains the authority at those gates.
+- Sending as Ari or another human identity unless a separate explicit delegated-send design is approved. Full-moon outbound means Slugger can send as `slugger@ouro.bot` under native-agent mail policy.
+- Silently bypassing browser auth, MFA, or secret-entry gates. The agent may execute approved API/browser steps, but the human remains the authority for actual credentials and browser challenges.
 - Preserving current Microsoft 365 mail behavior for `ouro.bot`; no required behavior has been identified there, and the current MX target is dead.
-- Enabling autonomous sending.
 
 ## Completion Criteria
 - [ ] `ouro account ensure` / `ouro connect mail` production mode calls hosted Mail Control, writes returned one-time private keys into the agent vault, configures the hosted Blob store reader, enables the Mail sense, and reports native plus delegated addresses without printing private keys.
@@ -59,11 +66,14 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - [ ] STARTTLS is advertised with a valid certificate for the MX host; certificate installation and renewal are documented and tested.
 - [ ] SMTP policy is tested for unknown recipient rejection, accepted recipient storage, message-too-large handling, parse/storage failures as transient where appropriate, recipient limits, rate limits, and logging without body leakage.
 - [ ] Native live mail to `slugger@ouro.bot` reaches encrypted Azure Blob storage, decrypts through Slugger's vault-held key, appears in `mail_recent` / Ouro Outlook, and lands in Screener when the sender is unknown.
-- [ ] Delegated live mail to `me.mendelow.ari.slugger@ouro.bot` reaches encrypted Azure Blob storage, decrypts through Slugger's vault-held key, carries `ownerEmail=ari@mendelow.me` and `source=hey`, and lands in Imbox.
+- [ ] Native live mail to `slugger@ouro.bot` behaves as a sense: it reports envelope/status/freshness/attention compactly, does not inject bodies, supports Screener decisions through the trust system, and can drive cross-sense attention when policy allows.
+- [ ] Delegated HEY mail to `me.mendelow.ari.slugger@ouro.bot` reaches encrypted Azure Blob storage, decrypts through Slugger's vault-held key, carries `ownerEmail=ari@mendelow.me` and `source=hey`, and is visibly source-scoped everywhere.
+- [ ] HEY MBOX backfill imports Ari's mailbox into the delegated source with provenance, freshness/fresh-through metadata, dedupe, audited bounded reads, and no archive-import wake storm.
 - [ ] HEY forwarding onboarding can be run by the agent as far as browser automation safely permits, falls back to guided human steps for auth/MFA/blocked automation, records setup state, and verifies a forwarded HEY message end to end.
 - [ ] Recovery docs and tooling cover partial failures at each step: DNS pending/wrong, port 25 down, Mail Control unavailable, vault locked, key mismatch, HEY forwarding unverified, forwarded mail missing, Blob credential failure, decryption failure, placement/provenance wrong, and provider send failure.
 - [ ] Production outbound is configured through authenticated provider submission, with credentials stored outside Git and sender-domain authentication verified.
-- [ ] Confirmed `mail_send` can send from the agent identity, records provider message ids, refuses unconfirmed/friend/autonomous sends, and keeps BCC/body privacy out of logs and unsafe summaries.
+- [ ] Agent-native outbound can send from `slugger@ouro.bot`, records provider message ids, distinguishes confirmed/manual sends from policy-governed autonomous sends, refuses unsafe or out-of-policy autonomous sends, and keeps BCC/body privacy out of logs and unsafe summaries.
+- [ ] Delegated human mail does not grant send-as-human authority; replies or follow-ups based on Ari's HEY mail draft/send from the agent identity unless a future explicit delegated-send product is approved.
 - [ ] Outbound delivery events or provider callbacks update auditable records so provider acceptance, delivery, bounce, suppression, quarantine/spam filtering, and failure are distinguishable.
 - [ ] SPF, DKIM, DKIM2 where required, and DMARC records for the selected sender domain are documented, applied through the DNS workflow, and verified after propagation.
 - [ ] Azure deployment, GitHub Actions, secrets/variables, and runbooks support the final inbound and outbound shape without local one-off production drift.
@@ -83,10 +93,13 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 
 ## Open Questions
 - None remaining after the 2026-04-22 full-moon feedback.
-- Remaining gates are operational inputs and approval, not scope decisions: Porkbun API access, any Azure/ACS credentials that cannot be created by the current session, HEY browser/MFA confirmation, and explicit plan/doing approval under the repo workflow.
+- Human approval/process gates are waived for this task. Remaining gates are genuine external inputs: Porkbun API access, secrets/vault unlock, browser/MFA steps for HEY, and any provider/portal confirmation that cannot be completed through current CLI/API access.
 
 ## Decisions Made
 - Scope is full-moon: inbound, outbound, DNS, HEY onboarding, hosted provisioning, local harness integration, recovery, docs, deployment, and live smoke tests all belong to this program.
+- Prior foundation docs were reviewed and are authoritative context: the mail story has two lanes, native agent mail sense and delegated human mailbox source, and the production plan must keep them visibly separate.
+- Agent-native mail is Slugger's own correspondence at `slugger@ouro.bot`; delegated HEY mail is Ari's mailbox content copied into Slugger's work substrate under owner/source provenance.
+- Full-moon includes policy-governed autonomous native-agent sending. This does not imply sending as Ari, sending from delegated source aliases, or bypassing trust/rate/audit controls.
 - Work may span `ouro-work-substrate` and the local harness checkout at `/Users/arimendelow/Projects/ouroboros-agent-harness` / `ouroborosbot/ouroboros`; do not constrain implementation to the hosted repo if the local agent experience needs harness changes.
 - `ouro.bot` is the intended Ouro Work mail domain.
 - The current HEY bounce is expected: `ouro.bot` MX resolves to `ouro-bot.mail.protection.outlook.com`, and that hostname currently has no A/CNAME answer.
@@ -101,7 +114,6 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - Browser automation for HEY is desirable, but auth/MFA/CAPTCHA and final confirmation are human-at-keyboard gates. The automation must be resumable and able to fall back to exact guided steps.
 - Direct outbound SMTP from Azure is not the production sending strategy. Use authenticated provider submission, with ACS Email as the first candidate.
 - Provider acceptance is not final delivery. Outbound records must model submission, provider acceptance, delivery, bounce/suppression/quarantine/spam filtering, and failure separately.
-- Autonomous sending remains disabled.
 - Current harness setup can create local Mailroom registry/key state without calling hosted Mail Control. Production setup must close this gap or production ingress can encrypt to public keys the local agent does not have.
 - Current harness reader already has an Azure Blob store shape, but production setup must configure the actual hosted Blob coordinates and least-privilege credential path.
 - Current outbound records store `text` directly in outbound JSON; production outbound needs a privacy review before writing sent bodies to Blob-backed stores.
@@ -118,6 +130,12 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - `apps/mail-control/src/server.ts`: production ensure endpoint is `POST /v1/mailboxes/ensure`; returns `mailboxAddress`, `sourceAlias`, generated private keys, and registry revision.
 - `apps/mail-ingress/src/server.ts`: current SMTP server disables `AUTH` and `STARTTLS`; production TLS posture is a required code change.
 - `packages/work-protocol/src/mail.ts`: current outbound status is only `draft | sent | failed`; full-moon outbound requires a richer model.
+- `/Users/arimendelow/AgentBundles/slugger.ouro/tasks/one-shots/2026-04-20-2100-email-access-research-proposal/proposal.md`: original Mailroom research; HEY lacks programmatic access, MBOX import is bootstrap/archive, forwarding is useful but not a source of truth.
+- `/Users/arimendelow/AgentBundles/slugger.ouro/tasks/one-shots/2026-04-20-2319-proposal-agent-native-mail.md`: agent-native `@ouro.bot` mail proposal; Mail is a sense, source aliases are delegated copies, and native/delegated content must remain labeled differently everywhere.
+- `/Users/arimendelow/AgentBundles/slugger.ouro/tasks/one-shots/2026-04-21-1434-ideation-agent-mail-user-stories.md`: explicit two-story user-story map for native agent mail and delegated human mail source; Screener/discard/recovery semantics.
+- `/Users/arimendelow/AgentBundles/slugger.ouro/tasks/one-shots/2026-04-21-1447-planning-agent-mail-whole-moon.md`: foundation planning doc for local whole-moon implementation.
+- `/Users/arimendelow/AgentBundles/slugger.ouro/tasks/one-shots/2026-04-21-1447-doing-agent-mail-whole-moon.md`: completed implementation proof; local harness Mail sense, MBOX import, Screener, Outlook, local outbound, and Azure proof units.
+- `/Users/arimendelow/AgentBundles/slugger.ouro/tasks/one-shots/2026-04-21-1447-doing-agent-mail-whole-moon/unit16-azure-proof.md`: prior Azure proof showing Blob/runtime and public TCP `2525` work, while port `25` remained blocked.
 - `/Users/arimendelow/Projects/ouroboros-agent-harness/docs/agent-mail-setup.md`: harness-side Agent Mail setup, HEY forwarding, golden path, and troubleshooting.
 - `/Users/arimendelow/Projects/ouroboros-agent-harness/docs/hosted-work-substrate.md`: hosted/local repo boundary.
 - `/Users/arimendelow/Projects/ouroboros-agent-harness/src/heart/daemon/cli-exec.ts`: current `ensureAgentMailroom` / `executeConnectMail` path creates local registry/key state and stores keys in vault `runtime/config`.
@@ -135,29 +153,20 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - ACS email events docs: https://learn.microsoft.com/en-us/azure/event-grid/communication-services-email-events. Delivery events include delivered, bounced, suppressed, quarantined, spam-filtered, and failed states.
 
 ## Notes
-- Spark: Slugger should have mail that feels native and trustworthy, not a proof-port toy. A message to `slugger@ouro.bot` should arrive where the agent can sense it; delegated HEY mail should be clearly labeled as Ari's granted source; a reply should leave through a deliberate, authenticated, auditable channel.
+- Spark: Slugger should have mail that feels native and trustworthy, not a proof-port toy. A message to `slugger@ouro.bot` is Slugger's correspondence and should behave like a real sense. Ari's HEY mail is a delegated mailbox source, available for executive-assistant work with full backfill and future forwarding, but always labeled as Ari's mailbox content.
 - Observed terrain: receiving worked in proof form on port `2525`; real MX delivery failed before touching our app because DNS points at a dead Outlook protection hostname. Sending has local-sink proof and ACS placeholders, but no production sender service yet.
+- Foundation terrain: the completed whole-moon task already built local Mail sense readiness, bounded mail tools, HEY MBOX import, Screener candidates, retained Discarded, Outlook mailbox UI, local confirmed outbound, and Azure Blob proof. This production task should not redesign those semantics; it should carry them into hosted provisioning, real MX, production outbound/autonomy, DNS, and recovery.
 - Divergent pass: the boring version is Container Apps port 25 plus Porkbun DNS; the ambitious version is a dedicated mail edge with queueing and SMTP policy in front of encrypted Blob storage; the weird-but-possibly-right version is third-party inbound parse/webhooks, rejected because it weakens hosted unreadability. The surviving first candidate is Container Apps because the existing environment is VNet-backed, has a static IP, and already proves the app path.
 - Tinfoil Hat changed the design: MX cannot include port `2525`, so proof-port success is not production mail. Hosted Mail Control must be the provisioning truth or hosted ingress may encrypt to keys the local agent does not have. Blob data-plane access from the harness is also part of production, not a later nicety.
 - Tinfoil Hat second pass: STARTTLS, DNS rollback, certificate renewal, storage transient failures, rate limits, and decryption/key-mismatch recovery are not hardening extras; they are what make "mail works" recoverable.
 - Stranger With Candy changed the vocabulary: `sent` is currently too optimistic, local-only Mailroom setup is not production account ensure, HEY forwarding to the native address would prove delivery while losing delegated provenance, and "DNS automation" must include backup/dry-run/rollback rather than just update calls.
 - Recovery model: every setup step should be idempotent and report one of `not_started`, `blocked_by_human`, `pending_propagation`, `ready`, `failed_recoverable`, or `failed_manual_repair`, with the next agent-runnable command and the human-required action separated.
 - Human-needed lock list:
-  - Planning approval: human says `approved` for this planning doc before conversion.
-  - Doing approval: human reviews the generated doing doc once, or explicitly waives that repo gate for this task.
-  - Cross-repo authority: human confirms Codex may create branches/worktrees/PRs, push commits, open/merge PRs after green CI, trigger deployments, and repair branch protection in `ouro-work-substrate` and the harness repo (`/Users/arimendelow/Projects/ouroboros-agent-harness`, remote `ouroborosbot/ouroboros`).
-  - Dirty harness checkout: human confirms Codex should leave the current harness checkout alone and create a dedicated worktree/branch for harness PRs.
-  - Porkbun API: human creates or approves an `ouro.bot` Porkbun API key, does not paste it into chat, and lets Codex store it via a hidden prompt or approved secret store. Needed for DNS backup/dry-run/apply/rollback and certificate automation.
-  - DNS authority: human pre-authorizes the expected DNS changes after backup and dry-run evidence, or chooses to require a final pause before MX cutover. Expected changes are `mx1.ouro.bot` A/AAAA as appropriate, root MX to `mx1.ouro.bot`, and provider-required SPF/DKIM/DKIM2/DMARC/TXT/CNAME records while preserving unrelated verification records.
-  - Azure authority: human confirms Codex may create/modify Azure resources in `rg-ouro-work-substrate`, including Container Apps ingress port 25, secrets/cert mounts, managed identities/role assignments, ACS Email/Communication resources, Entra app credentials for SMTP auth, and Event Grid subscriptions/webhooks.
-  - Azure CLI repair: human allows Codex to repair/install Azure CLI extensions or use ARM/Bicep/REST fallback if `az communication` remains unavailable.
-  - Costs: human accepts the small production costs for ACS Email, Event Grid, Blob/Log Analytics, and any certificate/DNS automation.
-  - Vault unlock: human is available to unlock Slugger's vault or enter vault material through a hidden prompt when setup needs to store Mailroom private keys, Blob reader config, Porkbun/ACS credentials, or outbound transport config.
-  - HEY browser: human is available for HEY login/MFA/CAPTCHA and final confirmation. Browser automation may drive safe UI steps, but must stop for auth and any uncertain destructive action.
-  - HEY forwarding target: human confirms delegated HEY forwarding should use `me.mendelow.ari.slugger@ouro.bot`, not `slugger@ouro.bot`.
-  - HEY reliability expectation: human accepts HEY's documented limitation that forwarding can miss spam-classified mail and can be affected by forwarding authentication behavior; HEY remains a recovery source.
-  - Live test mail: human can send or approve test messages from HEY and at least one outside mailbox, and can confirm any UI/provider emails that require manual action.
-  - Outbound send test: human pre-approves limited confirmed test sends from `slugger@ouro.bot` to human-controlled addresses; autonomous sending remains disabled.
+  - Porkbun API: human creates or approves an `ouro.bot` Porkbun API key and secret, does not paste them into chat, and enters them only through a hidden prompt or approved secret store. Needed for DNS backup/dry-run/apply/rollback and certificate automation.
+  - Slugger vault/secret entry: human may need to unlock Slugger's vault or enter secret material through a hidden prompt when setup stores Mailroom private keys, hosted Blob reader config, Porkbun credentials, ACS credentials, or outbound/autonomy policy secrets.
+  - HEY browser: human is available for HEY login/MFA/CAPTCHA, HEY export download, and forwarding/Extension confirmation. Automation may drive safe UI steps, but must stop for auth and ambiguous account changes.
+  - HEY forwarding target: delegated HEY forwarding uses `me.mendelow.ari.slugger@ouro.bot`, not `slugger@ouro.bot`.
+  - Live test mail: human can send or approve test messages from HEY and at least one outside mailbox, and can confirm any provider/domain verification emails that require manual action.
   - Secret hygiene: secrets go only into agent vault, GitHub Actions secrets, Azure secrets/Key Vault/Container App secrets, macOS Keychain, or another explicit secret store; never into chat, docs, commits, PR bodies, or logs.
 - Recommended execution shape after approval: multiple narrow PRs under this full-moon plan, roughly contract/protocol sync, hosted provisioning integration, inbound edge/TLS/DNS automation, harness hosted reader and setup recovery, HEY onboarding automation, outbound provider/events, docs/smoke/deploy. The doing doc should define exact units before execution.
 
