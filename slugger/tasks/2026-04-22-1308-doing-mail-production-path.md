@@ -209,3 +209,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 
 ## Progress Log
 - 2026-04-22 14:33 Created from planning doc after human waived process gates and foundation mail docs were reread.
+- 2026-04-22 14:34 Fixed unit heading format after template check.
