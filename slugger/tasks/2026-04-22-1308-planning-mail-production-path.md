@@ -16,7 +16,7 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 ## Scope
 
 ### In Scope
-- Make changes in `ouro-work-substrate` and, when needed, `ouroboros-agent-harness`; keep each repo's planning/branch rules and PR discipline.
+- Make changes in `ouro-work-substrate` and, when needed, the local harness checkout at `/Users/arimendelow/Projects/ouroboros-agent-harness` whose `origin` remote is `ouroborosbot/ouroboros`; keep each repo's planning/branch rules and PR discipline.
 - Treat `ouro.bot` as the Ouro Work mail domain and intentionally move away from the current broken Microsoft 365-shaped MX/SPF setup after backup, proof, and explicit cutover approval.
 - Make hosted Mail Control the production provisioning truth for `ouro account ensure` / `ouro connect mail`: public registry in Blob, newly generated private keys returned once, private keys stored immediately in the owning agent vault.
 - Preserve local development setup as an explicit mode, but prevent local-only registry/key generation from being mistaken for production readiness.
@@ -69,7 +69,7 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - [ ] Azure deployment, GitHub Actions, secrets/variables, and runbooks support the final inbound and outbound shape without local one-off production drift.
 - [ ] Live smoke test proves: hosted health, Mail Control auth, mailbox/source ensure, SMTP port 25 accept/reject, encrypted Blob write, vault decryption, Screener/Imbox placement, HEY forwarded mail, confirmed outbound send, delivery event reconciliation, and Ouro Outlook audit.
 - [ ] `npm run ci:local` passes in `ouro-work-substrate`.
-- [ ] The relevant harness CI/test command passes in `ouroboros-agent-harness`.
+- [ ] The relevant harness CI/test command passes in `/Users/arimendelow/Projects/ouroboros-agent-harness`.
 - [ ] 100% test coverage on all new code.
 - [ ] All tests pass.
 - [ ] No warnings.
@@ -87,7 +87,7 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 
 ## Decisions Made
 - Scope is full-moon: inbound, outbound, DNS, HEY onboarding, hosted provisioning, local harness integration, recovery, docs, deployment, and live smoke tests all belong to this program.
-- Work may span `ouro-work-substrate` and `ouroboros-agent-harness`; do not constrain implementation to the hosted repo if the local agent experience needs harness changes.
+- Work may span `ouro-work-substrate` and the local harness checkout at `/Users/arimendelow/Projects/ouroboros-agent-harness` / `ouroborosbot/ouroboros`; do not constrain implementation to the hosted repo if the local agent experience needs harness changes.
 - `ouro.bot` is the intended Ouro Work mail domain.
 - The current HEY bounce is expected: `ouro.bot` MX resolves to `ouro-bot.mail.protection.outlook.com`, and that hostname currently has no A/CNAME answer.
 - The current Microsoft 365-shaped TXT/SPF records are not a constraint to preserve; back them up before changing them.
@@ -145,7 +145,7 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - Human-needed lock list:
   - Planning approval: human says `approved` for this planning doc before conversion.
   - Doing approval: human reviews the generated doing doc once, or explicitly waives that repo gate for this task.
-  - Cross-repo authority: human confirms Codex may create branches/worktrees/PRs, push commits, open/merge PRs after green CI, trigger deployments, and repair branch protection in `ouro-work-substrate` and `ouroboros-agent-harness`.
+  - Cross-repo authority: human confirms Codex may create branches/worktrees/PRs, push commits, open/merge PRs after green CI, trigger deployments, and repair branch protection in `ouro-work-substrate` and the harness repo (`/Users/arimendelow/Projects/ouroboros-agent-harness`, remote `ouroborosbot/ouroboros`).
   - Dirty harness checkout: human confirms Codex should leave the current harness checkout alone and create a dedicated worktree/branch for harness PRs.
   - Porkbun API: human creates or approves an `ouro.bot` Porkbun API key, does not paste it into chat, and lets Codex store it via a hidden prompt or approved secret store. Needed for DNS backup/dry-run/apply/rollback and certificate automation.
   - DNS authority: human pre-authorizes the expected DNS changes after backup and dry-run evidence, or chooses to require a final pause before MX cutover. Expected changes are `mx1.ouro.bot` A/AAAA as appropriate, root MX to `mx1.ouro.bot`, and provider-required SPF/DKIM/DKIM2/DMARC/TXT/CNAME records while preserving unrelated verification records.
