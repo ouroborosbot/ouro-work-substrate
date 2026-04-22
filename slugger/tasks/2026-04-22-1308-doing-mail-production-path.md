@@ -57,8 +57,7 @@ Bring Agent Mail to full production shape across Ouro Work Substrate and the Our
 
 ## Work Units
 
-### Legend
-⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
+Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 
 **CRITICAL: Every unit header MUST start with status emoji (⬜ for new units).**
 
