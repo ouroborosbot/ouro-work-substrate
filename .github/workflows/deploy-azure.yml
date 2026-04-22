@@ -1,0 +1,116 @@
+name: Deploy Azure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment_name:
+        description: Short deployment environment name
+        required: true
+        default: prod
+      location:
+        description: Azure region
+        required: true
+        default: eastus2
+      mail_exposed_smtp_port:
+        description: External SMTP proof port. Do not use 25 until MX ingress is approved.
+        required: true
+        default: "2525"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: azure-${{ inputs.environment_name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      AZURE_LOCATION: ${{ inputs.location }}
+      AZURE_ENVIRONMENT_NAME: ${{ inputs.environment_name }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Ensure resource group and registry
+        id: registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${AZURE_RESOURCE_GROUP:?AZURE_RESOURCE_GROUP repo variable is required}"
+          az group create --name "$AZURE_RESOURCE_GROUP" --location "$AZURE_LOCATION" --tags product=ouro component=work-substrate
+          deployment_name="registry-${GITHUB_RUN_ID}"
+          az deployment group create \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$deployment_name" \
+            --template-file infra/azure/registry.bicep \
+            --parameters location="$AZURE_LOCATION" environmentName="$AZURE_ENVIRONMENT_NAME" \
+            --query properties.outputs \
+            -o json > registry-outputs.json
+          acr_name="$(jq -r '.containerRegistryName.value' registry-outputs.json)"
+          acr_login_server="$(jq -r '.containerRegistryLoginServer.value' registry-outputs.json)"
+          echo "acr_name=$acr_name" >> "$GITHUB_OUTPUT"
+          echo "acr_login_server=$acr_login_server" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push images
+        id: images
+        shell: bash
+        run: |
+          set -euo pipefail
+          acr_name="${{ steps.registry.outputs.acr_name }}"
+          acr_login_server="${{ steps.registry.outputs.acr_login_server }}"
+          az acr login --name "$acr_name"
+          mail_ingress_image="$acr_login_server/ouro-mail-ingress:${GITHUB_SHA}"
+          mail_control_image="$acr_login_server/ouro-mail-control:${GITHUB_SHA}"
+          vault_control_image="$acr_login_server/ouro-vault-control:${GITHUB_SHA}"
+          docker build -f apps/mail-ingress/Dockerfile -t "$mail_ingress_image" .
+          docker build -f apps/mail-control/Dockerfile -t "$mail_control_image" .
+          docker build -f apps/vault-control/Dockerfile -t "$vault_control_image" .
+          docker push "$mail_ingress_image"
+          docker push "$mail_control_image"
+          docker push "$vault_control_image"
+          echo "mail_ingress_image=$mail_ingress_image" >> "$GITHUB_OUTPUT"
+          echo "mail_control_image=$mail_control_image" >> "$GITHUB_OUTPUT"
+          echo "vault_control_image=$vault_control_image" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy apps
+        shell: bash
+        env:
+          MAIL_CONTROL_ADMIN_TOKEN: ${{ secrets.MAIL_CONTROL_ADMIN_TOKEN }}
+          VAULT_CONTROL_ADMIN_TOKEN: ${{ secrets.VAULT_CONTROL_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          : "${MAIL_CONTROL_ADMIN_TOKEN:?MAIL_CONTROL_ADMIN_TOKEN secret is required}"
+          : "${VAULT_CONTROL_ADMIN_TOKEN:?VAULT_CONTROL_ADMIN_TOKEN secret is required}"
+          az deployment group create \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "apps-${GITHUB_RUN_ID}" \
+            --template-file infra/azure/main.bicep \
+            --parameters \
+              location="$AZURE_LOCATION" \
+              environmentName="$AZURE_ENVIRONMENT_NAME" \
+              containerRegistryName="${{ steps.registry.outputs.acr_name }}" \
+              mailIngressImage="${{ steps.images.outputs.mail_ingress_image }}" \
+              mailControlImage="${{ steps.images.outputs.mail_control_image }}" \
+              vaultControlImage="${{ steps.images.outputs.vault_control_image }}" \
+              mailControlAdminToken="$MAIL_CONTROL_ADMIN_TOKEN" \
+              vaultControlAdminToken="$VAULT_CONTROL_ADMIN_TOKEN" \
+              mailExposedSmtpPort="${{ inputs.mail_exposed_smtp_port }}"
+
+      - name: Show deployment outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          az deployment group show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "apps-${GITHUB_RUN_ID}" \
+            --query properties.outputs \
+            -o table

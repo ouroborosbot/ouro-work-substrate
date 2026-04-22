@@ -54,5 +54,19 @@ describe("mail ingress args", () => {
     expect(() => parseMailIngressArgs(["--store", "/tmp/mail"])).toThrow("Missing --registry")
     expect(() => parseMailIngressArgs(["--registry", "/tmp/registry.json"])).toThrow("Missing --store")
   })
-})
 
+  it("supports a dynamic Azure Blob registry", () => {
+    const parsed = parseMailIngressArgs([
+      "--registry-azure-account-url", "https://storage.blob.core.windows.net",
+      "--azure-account-url", "https://storage.blob.core.windows.net",
+      "--registry-container", "mail",
+      "--registry-blob", "registry/prod.json",
+      "--registry-refresh-ms", "5000",
+    ])
+
+    expect(parsed.registryAzureAccountUrl).toBe("https://storage.blob.core.windows.net")
+    expect(parsed.registryContainer).toBe("mail")
+    expect(parsed.registryBlob).toBe("registry/prod.json")
+    expect(parsed.registryRefreshMs).toBe(5000)
+  })
+})

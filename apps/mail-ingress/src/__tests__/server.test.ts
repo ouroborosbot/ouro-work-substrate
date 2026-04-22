@@ -2,6 +2,7 @@ import * as http from "node:http"
 import { describe, expect, it } from "vitest"
 import { ensureMailboxRegistry } from "@ouro/work-protocol"
 import { createMailIngressHealthServer, parsePrivateMailEnvelope } from "../server"
+import { StaticRegistryProvider } from "../registry"
 
 function listen(server: http.Server): Promise<number> {
   return new Promise((resolve) => {
@@ -15,7 +16,7 @@ function listen(server: http.Server): Promise<number> {
 describe("mail ingress server", () => {
   it("serves a compact health endpoint", async () => {
     const registry = ensureMailboxRegistry({ agentId: "slugger", ownerEmail: "ari@mendelow.me" }).registry
-    const server = createMailIngressHealthServer(registry)
+    const server = createMailIngressHealthServer(new StaticRegistryProvider(registry))
     const port = await listen(server)
     try {
       const response = await fetch(`http://127.0.0.1:${port}/health`)

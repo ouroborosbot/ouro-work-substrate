@@ -15,6 +15,7 @@ Website and marketing updates are intentionally out of scope for this repository
 
 - `packages/work-protocol`: shared mail/vault records, address routing, encryption, screener placement, and registry helpers.
 - `apps/mail-ingress`: SMTP ingress plus health endpoint for agent mailboxes. It accepts registered recipients, stores encrypted envelopes, and leaves human and agent secrets out of the hosted service.
+- `apps/mail-control`: authenticated mailbox control plane. It creates native agent mailboxes and delegated source grants in the public registry, returning newly generated private keys once so the caller can place them in the owning agent vault.
 - `apps/vault-control`: authenticated control-plane service for programmatic Vaultwarden account creation.
 - `infra/azure`: Azure Container Apps and Blob Storage deployment skeleton for the hosted substrate.
 
@@ -23,6 +24,7 @@ Website and marketing updates are intentionally out of scope for this repository
 ```bash
 npm install
 npm test
+npm run infra:check
 npm run build
 ```
 
@@ -32,4 +34,4 @@ The services use explicit CLI arguments and committed deployment templates. Do n
 
 The default Azure deployment puts Mail ingress and Vault control in Container Apps with a user-assigned managed identity. Mail data lands in Azure Blob Storage under encrypted records; private mail keys and vault credentials remain in the owning agent vault.
 
-See [deployment story](docs/deployment-story.md), [Azure deployment](docs/deployment-azure.md), [architecture](docs/architecture.md), and [agent account lifecycle](docs/agent-account-lifecycle.md).
+See [deployment story](docs/deployment-story.md), [Azure deployment](docs/deployment-azure.md), [operations](docs/operations.md), [architecture](docs/architecture.md), and [agent account lifecycle](docs/agent-account-lifecycle.md).

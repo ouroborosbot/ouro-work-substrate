@@ -12,6 +12,8 @@
     "build": "npm run build --workspaces --if-present",
     "test": "npm run build && vitest run",
     "typecheck": "npm run build",
+    "infra:check": "az bicep build --file infra/azure/main.bicep && az bicep build --file infra/azure/registry.bicep && rm -f infra/azure/main.json infra/azure/registry.json",
+    "ci:local": "npm test && npm run infra:check",
     "clean": "rm -rf packages/*/dist apps/*/dist coverage"
   },
   "devDependencies": {

@@ -4,6 +4,7 @@ import { parseMailIngressArgs, readRegistry } from "./args"
 import { AzureBlobMailroomStore, FileMailroomStore, type MailroomStore } from "./store"
 import { startMailIngress, type MailIngressServers } from "./server"
 import { logEvent } from "./log"
+import { AzureBlobRegistryProvider, FileRegistryProvider, StaticRegistryProvider, type MailroomRegistryProvider } from "./registry"
 
 function createStore(parsed: ReturnType<typeof parseMailIngressArgs>): MailroomStore {
   if (parsed.azureAccountUrl) {
@@ -18,11 +19,28 @@ function createStore(parsed: ReturnType<typeof parseMailIngressArgs>): MailroomS
   return new FileMailroomStore(parsed.storePath!)
 }
 
+function createRegistryProvider(parsed: ReturnType<typeof parseMailIngressArgs>): MailroomRegistryProvider {
+  if (parsed.registryBase64 || parsed.registryPath) {
+    return parsed.registryBase64
+      ? new StaticRegistryProvider(readRegistry(parsed))
+      : new FileRegistryProvider(parsed.registryPath!, parsed.registryDomain)
+  }
+  const credential = parsed.azureManagedIdentityClientId
+    ? new DefaultAzureCredential({ managedIdentityClientId: parsed.azureManagedIdentityClientId })
+    : new DefaultAzureCredential()
+  return new AzureBlobRegistryProvider(
+    new BlobServiceClient(parsed.registryAzureAccountUrl!, credential),
+    parsed.registryContainer,
+    parsed.registryBlob,
+    parsed.registryDomain,
+    parsed.registryRefreshMs,
+  )
+}
+
 export function runMailIngress(args: string[] = process.argv.slice(2)): MailIngressServers {
   const parsed = parseMailIngressArgs(args)
-  const registry = readRegistry(parsed)
   const servers = startMailIngress({
-    registry,
+    registryProvider: createRegistryProvider(parsed),
     store: createStore(parsed),
     smtpPort: parsed.smtpPort,
     httpPort: parsed.httpPort,
@@ -34,10 +52,11 @@ export function runMailIngress(args: string[] = process.argv.slice(2)): MailIngr
     event: "entry_started",
     message: "mail ingress entrypoint started",
     meta: {
-      domain: registry.domain,
+      domain: parsed.registryDomain,
       smtpPort: parsed.smtpPort,
       httpPort: parsed.httpPort,
       store: parsed.azureAccountUrl ? "azure-blob" : "file",
+      registry: parsed.registryAzureAccountUrl ? "azure-blob" : "static",
     },
   })
   return servers
