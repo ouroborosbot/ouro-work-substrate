@@ -27,21 +27,27 @@ az identity create \
 client_id="$(az identity show --resource-group "$resource_group" --name "$identity_name" --query clientId -o tsv)"
 principal_id="$(az identity show --resource-group "$resource_group" --name "$identity_name" --query principalId -o tsv)"
 
-subject="repo:${repo}:ref:refs/heads/main"
-if ! az identity federated-credential show \
-  --resource-group "$resource_group" \
-  --identity-name "$identity_name" \
-  --name github-main \
-  >/dev/null 2>&1; then
-  az identity federated-credential create \
+ensure_federated_credential() {
+  local credential_name="$1"
+  local subject="$2"
+  if ! az identity federated-credential show \
     --resource-group "$resource_group" \
     --identity-name "$identity_name" \
-    --name github-main \
-    --issuer "https://token.actions.githubusercontent.com" \
-    --subject "$subject" \
-    --audience "api://AzureADTokenExchange" \
-    >/dev/null
-fi
+    --name "$credential_name" \
+    >/dev/null 2>&1; then
+    az identity federated-credential create \
+      --resource-group "$resource_group" \
+      --identity-name "$identity_name" \
+      --name "$credential_name" \
+      --issuer "https://token.actions.githubusercontent.com" \
+      --subject "$subject" \
+      --audience "api://AzureADTokenExchange" \
+      >/dev/null
+  fi
+}
+
+ensure_federated_credential "github-main" "repo:${repo}:ref:refs/heads/main"
+ensure_federated_credential "github-environment-${environment_name}" "repo:${repo}:environment:${environment_name}"
 
 for role in "Contributor" "User Access Administrator" "AcrPush"; do
   if ! az role assignment list \
