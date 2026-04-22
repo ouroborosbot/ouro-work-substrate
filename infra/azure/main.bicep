@@ -1,0 +1,304 @@
+@description('Azure region for all resources.')
+param location string = resourceGroup().location
+
+@description('Short environment name. Used in resource names.')
+@minLength(2)
+@maxLength(16)
+param environmentName string = 'prod'
+
+@description('Container image for apps/mail-ingress.')
+param mailIngressImage string
+
+@description('Container image for apps/vault-control.')
+param vaultControlImage string
+
+@description('Vaultwarden/Bitwarden server URL used by vault-control.')
+param vaultServerUrl string = 'https://vault.ouroboros.bot'
+
+@description('Bearer token for vault-control. Pass from a secure operator shell or Key Vault-backed deployment.')
+@secure()
+param vaultControlAdminToken string
+
+@description('Mail domain served by the hosted substrate.')
+param mailDomain string = 'ouro.bot'
+
+@description('Mail storage container name.')
+param mailContainerName string = 'mailroom'
+
+@description('Virtual network address prefix for the Container Apps environment.')
+param virtualNetworkAddressPrefix string = '10.42.0.0/16'
+
+@description('Delegated infrastructure subnet prefix for the workload profiles Container Apps environment.')
+param infrastructureSubnetPrefix string = '10.42.0.0/27'
+
+@description('Health HTTP port exposed by mail ingress.')
+param mailHttpPort int = 8080
+
+@description('SMTP port listened to by mail ingress.')
+param mailSmtpPort int = 2525
+
+@description('Externally exposed SMTP TCP port. Use 25 only after provider/network proof.')
+param mailExposedSmtpPort int = 2525
+
+var prefix = 'ouro-${environmentName}'
+var storageName = toLower(replace('${prefix}${uniqueString(resourceGroup().id)}', '-', ''))
+var blobContributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+
+resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: storageName
+  location: location
+  sku: {
+    name: 'Standard_LRS'
+  }
+  kind: 'StorageV2'
+  properties: {
+    allowBlobPublicAccess: false
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+  }
+}
+
+resource mailContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  name: '${storage.name}/default/${mailContainerName}'
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
+resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: '${prefix}-services-mi'
+  location: location
+}
+
+resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
+  name: '${prefix}-vnet'
+  location: location
+  properties: {
+    addressSpace: {
+      addressPrefixes: [
+        virtualNetworkAddressPrefix
+      ]
+    }
+  }
+}
+
+resource infrastructureSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-11-01' = {
+  parent: vnet
+  name: 'container-apps'
+  properties: {
+    addressPrefix: infrastructureSubnetPrefix
+    delegations: [
+      {
+        name: 'container-apps-environment'
+        properties: {
+          serviceName: 'Microsoft.App/environments'
+        }
+      }
+    ]
+  }
+}
+
+resource mailBlobAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storage.id, identity.id, blobContributorRoleId)
+  scope: storage
+  properties: {
+    roleDefinitionId: blobContributorRoleId
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource environment 'Microsoft.App/managedEnvironments@2024-03-01' = {
+  name: '${prefix}-cae'
+  location: location
+  properties: {
+    vnetConfiguration: {
+      infrastructureSubnetId: infrastructureSubnet.id
+      internal: false
+    }
+    workloadProfiles: [
+      {
+        name: 'Consumption'
+        workloadProfileType: 'Consumption'
+      }
+    ]
+  }
+}
+
+resource mailIngress 'Microsoft.App/containerApps@2024-03-01' = {
+  name: '${prefix}-mail-ingress'
+  location: location
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${identity.id}': {}
+    }
+  }
+  properties: {
+    environmentId: environment.id
+    workloadProfileName: 'Consumption'
+    configuration: {
+      activeRevisionsMode: 'Single'
+      ingress: {
+        external: true
+        transport: 'http'
+        targetPort: mailHttpPort
+        allowInsecure: false
+        additionalPortMappings: [
+          {
+            external: true
+            targetPort: mailSmtpPort
+            exposedPort: mailExposedSmtpPort
+          }
+        ]
+        traffic: [
+          {
+            latestRevision: true
+            weight: 100
+          }
+        ]
+      }
+    }
+    template: {
+      containers: [
+        {
+          name: 'mail-ingress'
+          image: mailIngressImage
+          args: [
+            '--registry-base64'
+            '__REGISTRY_BASE64_FROM_CONTROL_PLANE__'
+            '--azure-account-url'
+            'https://${storage.name}.blob.${az.environment().suffixes.storage}'
+            '--azure-container'
+            mailContainerName
+            '--azure-managed-identity-client-id'
+            identity.properties.clientId
+            '--smtp-port'
+            string(mailSmtpPort)
+            '--http-port'
+            string(mailHttpPort)
+          ]
+          resources: {
+            cpu: json('0.25')
+            memory: '0.5Gi'
+          }
+          probes: [
+            {
+              type: 'Readiness'
+              httpGet: {
+                path: '/health'
+                port: mailHttpPort
+              }
+              initialDelaySeconds: 5
+              periodSeconds: 15
+            }
+          ]
+        }
+      ]
+      scale: {
+        minReplicas: 1
+        maxReplicas: 3
+      }
+    }
+  }
+  dependsOn: [
+    mailBlobAccess
+    mailContainer
+  ]
+}
+
+resource vaultControl 'Microsoft.App/containerApps@2024-03-01' = {
+  name: '${prefix}-vault-control'
+  location: location
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${identity.id}': {}
+    }
+  }
+  properties: {
+    environmentId: environment.id
+    workloadProfileName: 'Consumption'
+    configuration: {
+      activeRevisionsMode: 'Single'
+      secrets: [
+        {
+          name: 'vault-control-admin-token'
+          value: vaultControlAdminToken
+        }
+      ]
+      ingress: {
+        external: false
+        transport: 'http'
+        targetPort: 8080
+        allowInsecure: false
+        traffic: [
+          {
+            latestRevision: true
+            weight: 100
+          }
+        ]
+      }
+    }
+    template: {
+      containers: [
+        {
+          name: 'vault-control'
+          image: vaultControlImage
+          args: [
+            '--vault-server-url'
+            vaultServerUrl
+            '--admin-token-file'
+            '/mnt/secrets/vault-control-admin-token'
+            '--allowed-email-domain'
+            mailDomain
+            '--port'
+            '8080'
+          ]
+          resources: {
+            cpu: json('0.25')
+            memory: '0.5Gi'
+          }
+          volumeMounts: [
+            {
+              volumeName: 'control-secrets'
+              mountPath: '/mnt/secrets'
+            }
+          ]
+          probes: [
+            {
+              type: 'Readiness'
+              httpGet: {
+                path: '/health'
+                port: 8080
+              }
+              initialDelaySeconds: 5
+              periodSeconds: 15
+            }
+          ]
+        }
+      ]
+      scale: {
+        minReplicas: 1
+        maxReplicas: 2
+      }
+      volumes: [
+        {
+          name: 'control-secrets'
+          storageType: 'Secret'
+          secrets: [
+            {
+              secretRef: 'vault-control-admin-token'
+              path: 'vault-control-admin-token'
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+
+output mailIngressFqdn string = mailIngress.properties.configuration.ingress.fqdn
+output mailSmtpPort int = mailExposedSmtpPort
+output mailStorageAccountUrl string = 'https://${storage.name}.blob.${az.environment().suffixes.storage}'
+output vaultControlInternalFqdn string = vaultControl.properties.configuration.ingress.fqdn
