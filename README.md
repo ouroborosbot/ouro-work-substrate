@@ -32,4 +32,4 @@ The services use explicit CLI arguments and committed deployment templates. Do n
 
 The default Azure deployment puts Mail ingress and Vault control in Container Apps with a user-assigned managed identity. Mail data lands in Azure Blob Storage under encrypted records; private mail keys and vault credentials remain in the owning agent vault.
 
-See [Azure deployment](docs/deployment-azure.md), [architecture](docs/architecture.md), and [agent account lifecycle](docs/agent-account-lifecycle.md).
+See [deployment story](docs/deployment-story.md), [Azure deployment](docs/deployment-azure.md), [architecture](docs/architecture.md), and [agent account lifecycle](docs/agent-account-lifecycle.md).
