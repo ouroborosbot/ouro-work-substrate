@@ -1,17 +1,31 @@
 # Azure Infra
 
-`main.bicep` is the first production-oriented Azure shape for Ouro Work:
+This directory is the cloud shape for Ouro Work. Keep it reproducible, boring in the best way, and easy for a future agent to inspect without opening the Azure portal.
 
-- Mail ingress runs with explicit CLI args and managed identity access to Blob Storage.
-- Mail control writes the public registry in Blob Storage and returns generated private keys to the caller once.
-- Vault control runs as an internal-ish control service with a bearer token secret.
+## Files
+
+- `registry.bicep`: creates or repairs Azure Container Registry so the deploy workflow has a place to push images.
+- `main.bicep`: deploys Storage, managed identity, Container Apps environment, Mail Ingress, Mail Control, Vault Control, and role assignments.
+
+## Design Notes
+
+- Mail Ingress runs with explicit CLI args and managed identity access to Blob Storage.
+- Mail Control writes the public registry in Blob Storage and returns generated private keys to the caller once.
+- Vault Control runs behind a bearer-token control plane.
 - Hosted services avoid reading from agent vaults. They receive public registry data and store encrypted payloads.
+- The SMTP proof port is parameterized. Keep it at `2525` until production MX is explicitly approved.
 
-Validate locally with:
+## Validate
 
 ```bash
 az bicep build --file infra/azure/main.bicep
 az bicep build --file infra/azure/registry.bicep
 ```
 
-Then deploy from a resource group with `az deployment group create`.
+`npm run ci:local` runs those checks after the TypeScript/test suite.
+
+## Deploy
+
+Prefer the GitHub **Deploy Azure** workflow. It handles ACR, image tags, secure parameters, and Bicep deployment in the same path CI expects.
+
+Use direct `az deployment group create` only for focused debugging, and copy any lasting lesson back into `docs/operations.md`.

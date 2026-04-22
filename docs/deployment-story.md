@@ -1,12 +1,16 @@
 # Deployment Story
 
-This repository is the hosted service home for Ouro Work. It does not replace the local Ouroboros harness runtime yet.
+This repository is the hosted service home for Ouro Work. It does not replace the local Ouroboros harness runtime; it gives that runtime a clean, deployable service boundary for mail, vault, and future work surfaces.
+
+This doc is the memory of how the deploy story changed. Keep it honest. A future agent should be able to tell what is proven, what is gated, and what is merely imagined.
 
 ## Current State
 
-- Hosted service code lives here: shared protocol, Mail ingress, Mail control, Vault control, Dockerfiles, and Azure infra.
+- Hosted service code lives here: shared protocol, Mail Ingress, Mail Control, Vault Control, Dockerfiles, and Azure infra.
 - The Ouroboros harness still owns local setup commands, the Mail sense, bounded mail tools, local development stores, and Ouro Outlook.
-- The previous Azure proof used harness-packaged Mailroom code. This repo is the cleaned-up hosted source of truth for the next proof.
+- Azure proof deployment is live from this repo.
+- `main` deploys automatically after green CI through GitHub OIDC.
+- Mail proof SMTP is on port `2525`.
 - Production DNS/MX cutover has not happened.
 - Autonomous sending is not enabled.
 
@@ -30,7 +34,7 @@ Those checks are intentionally boring: the hosted service should always be build
 
 Run the services locally where possible, validate protocol behavior with tests, compile Azure infra, and build both container images in CI.
 
-Status: active.
+Status: complete and continuously enforced.
 
 ### Phase 2: Azure Proof Deployment
 
@@ -43,7 +47,7 @@ Build and push images to ACR, then deploy `infra/azure/main.bicep` into an Azure
 - Health endpoints are reachable.
 - Vault control rejects unauthenticated and non-`ouro.bot` account requests.
 
-Status: ready to run from this repo after GitHub OIDC and control-token secrets are present.
+Status: complete. The live proof verified native `slugger@ouro.bot` mail to Screener, delegated `me.mendelow.ari.slugger@ouro.bot` mail to Imbox, encrypted Blob storage, and decryption with the one-time private key returned by Mail Control.
 
 ### Phase 3: Production Ingress Decision
 
@@ -53,11 +57,17 @@ Status: open. Do not publish production MX until this is proven.
 
 ### Phase 4: Deployment Automation
 
-Phase 4 is push-to-main deployment. Only after Phase 2 succeeds and Phase 3 is settled, add push-triggered deployment:
+Phase 4 is deploy-after-green-CI automation. It should use the exact CI-tested commit, Azure OIDC, ACR image tags tied to the commit SHA, and serialized environment deployment.
 
-- Push-to-main deployment only after manual deploys are boring.
+Status: complete. A workflow-run deploy now starts after successful `CI` on `main`, and the `prod` GitHub Environment OIDC subject is authorized in Azure.
 
-Status: intentionally deferred. Manual deploy exists; automatic deployment should not be enabled before the Azure mail-ingress proof is boring.
+Manual deployment remains available for token rotation, repairs, and proof-port changes.
+
+### Phase 5: Production Mail Edge
+
+Phase 5 is the real inbound mail decision: production MX, port `25`, DNS, HEY forwarding, and operational monitoring.
+
+Status: gated. This requires final human confirmation and may require a dedicated Azure mail edge if Container Apps is not the right final SMTP endpoint.
 
 ## Branch Protection
 
@@ -75,4 +85,4 @@ Slugger local testing can resume before auto-deployment. These are not blocked b
 - Screener decisions.
 - Ouro Outlook audit.
 
-Live inbound forwarding to `@ouro.bot` should wait for the Azure proof deployment and production ingress decision.
+Live inbound forwarding to `@ouro.bot` should wait for the production ingress decision and explicit human action.

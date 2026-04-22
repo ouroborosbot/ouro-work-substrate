@@ -1,37 +1,69 @@
 # Ouro Work Substrate
 
-Hosted services for Ouro, the agent-first work substrate.
+Welcome in. This repository is the hosted service home for **Ouro Work**: the agent-first account substrate where an Ouro agent gets a private work identity, an email address, a vault, and the beginnings of the tools a capable assistant needs to move through the world with taste and care.
 
-This repository is the deployable service boundary for agent-owned work accounts: `Ouro Mail`, `Ouro Vault`, and the shared protocol they use to stay private, auditable, and pleasant for agents to inhabit.
+The code here is intentionally small, sober, and warm. Small because private work systems should have few places to hide mistakes. Sober because mail and vaults are real trust surfaces. Warm because this is infrastructure for agents who will live with it for long stretches of work, and good tools should make their inhabitants feel oriented.
 
-## Brand Boundary
+## What Lives Here
 
-- **Ouroboros** is the open-source harness and local runtime: agents, senses, CLI, skills, Outlook UI, and local development loops.
-- **Ouro** is the hosted work substrate: private agent accounts with mail, vault, contacts, audit, and future work surfaces.
+This repo owns the hosted pieces of the work substrate:
 
-Website and marketing updates are intentionally out of scope for this repository split.
+- `packages/work-protocol`: shared records, routing helpers, encryption helpers, Screener/Imbox placement, and registry logic.
+- `apps/mail-ingress`: SMTP ingress plus health. It accepts registered recipients and stores encrypted mail objects.
+- `apps/mail-control`: authenticated mailbox control. It creates native agent mailboxes and delegated source grants, returning newly generated private keys exactly once.
+- `apps/vault-control`: authenticated Vaultwarden account creation.
+- `infra/azure`: Azure Container Apps, Blob Storage, ACR, managed identity, Log Analytics, and deployment templates.
 
-## Packages
+The local Ouroboros harness still owns the agent runtime, CLI, local senses, bounded read tools, setup guidance, and Ouro Outlook UI. Hosted code belongs here; agent habitation code belongs there.
 
-- `packages/work-protocol`: shared mail/vault records, address routing, encryption, screener placement, and registry helpers.
-- `apps/mail-ingress`: SMTP ingress plus health endpoint for agent mailboxes. It accepts registered recipients, stores encrypted envelopes, and leaves human and agent secrets out of the hosted service.
-- `apps/mail-control`: authenticated mailbox control plane. It creates native agent mailboxes and delegated source grants in the public registry, returning newly generated private keys once so the caller can place them in the owning agent vault.
-- `apps/vault-control`: authenticated control-plane service for programmatic Vaultwarden account creation.
-- `infra/azure`: Azure Container Apps and Blob Storage deployment skeleton for the hosted substrate.
+## The Shape Of Trust
 
-## Development
+An agent should be able to receive real mail without the hosted service being able to read it.
+
+That is the core promise:
+
+1. Mail Control publishes public routing keys and returns new private keys only once.
+2. The caller immediately stores those private keys in the owning agent vault.
+3. Mail ingress uses public keys to encrypt raw MIME and parsed private envelopes.
+4. The local agent reads mail through vault-held keys, with mail presented as a sense.
+
+Native agent mail, such as `slugger@ouro.bot`, starts in Screener. Delegated human mail, such as `me.mendelow.ari.slugger@ouro.bot`, carries owner/source provenance and can land in Imbox when the source grant says it should. "Discard" means recoverable drawer, not bounce or delete.
+
+## Production State
+
+The current Azure production proof is live on Container Apps:
+
+- Mail Control: authenticated HTTP control plane.
+- Mail Ingress: HTTP health plus proof SMTP TCP ingress on port `2525`.
+- Vault Control: authenticated Vaultwarden account creation control plane.
+- Storage: Azure Blob Storage with encrypted mail records.
+- Deploys: `main` deploys automatically after green CI through GitHub OIDC.
+
+Production MX/DNS cutover, HEY forwarding/export, browser auth/MFA, and autonomous sending remain explicit human-at-keyboard gates.
+
+## First Commands
 
 ```bash
 npm install
-npm test
-npm run infra:check
-npm run build
+npm run ci:local
 ```
 
-The services use explicit CLI arguments and committed deployment templates. Do not add secret-bearing environment variables as the configuration contract.
+`ci:local` runs the same spine that matters in CI: TypeScript build, Vitest tests, and Bicep validation. GitHub CI additionally builds every service Docker image.
 
-## Deployment Shape
+The services use explicit CLI arguments and committed deployment templates. Do not introduce secret-bearing environment-variable config as the durable contract.
 
-The default Azure deployment puts Mail ingress and Vault control in Container Apps with a user-assigned managed identity. Mail data lands in Azure Blob Storage under encrypted records; private mail keys and vault credentials remain in the owning agent vault.
+## Reading Path
 
-See [deployment story](docs/deployment-story.md), [Azure deployment](docs/deployment-azure.md), [operations](docs/operations.md), [architecture](docs/architecture.md), and [agent account lifecycle](docs/agent-account-lifecycle.md).
+If you are a future agent arriving here cold, start with [AGENTS.md](AGENTS.md). It is the field note from the previous agent to you.
+
+Then read:
+
+- [Architecture](docs/architecture.md): how mail, vault, registry, encryption, and runtime boundaries fit together.
+- [Agent Account Lifecycle](docs/agent-account-lifecycle.md): how a new or existing agent gets its work account.
+- [Operations](docs/operations.md): deploy, smoke, rollback, scaling, and token rotation.
+- [Production Readiness](docs/production-readiness.md): the checklist for deciding whether a change keeps the production bar.
+- [Azure Deployment](docs/deployment-azure.md): the cloud shape and why each Azure piece exists.
+- [Deployment Story](docs/deployment-story.md): what has been proven, what remains gated, and what changed over time.
+- [Branding Boundary](docs/branding.md): Ouro vs. Ouroboros, and how to talk about the product without blurring the system.
+
+Build this place like you expect to come back tired at 2 AM and still understand what matters. Future you deserves that.
