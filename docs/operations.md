@@ -30,13 +30,15 @@ scripts/bootstrap-azure-github-oidc.sh ouroborosbot/ouro-work-substrate rg-ouro-
 
 ## Deploy
 
-Use the manual GitHub workflow:
+Merges to `main` deploy automatically after the `CI` workflow completes successfully. The deploy workflow checks out the exact CI-tested commit, builds all service images, pushes them to ACR, and applies the Container Apps Bicep deployment.
+
+Use the manual GitHub workflow for intentional redeploys, token rotation, or proof-port changes:
 
 ```bash
 gh workflow run deploy-azure.yml --repo ouroborosbot/ouro-work-substrate
 ```
 
-The workflow creates or updates ACR, builds/pushes all service images, and deploys Container Apps with Bicep.
+The deployment is serialized per environment so only one production rollout runs at a time.
 
 ## Smoke Test
 
@@ -78,4 +80,3 @@ Mail ingress defaults to one minimum replica and five maximum replicas. Increase
 - Browser auth and MFA.
 - Production MX cutover.
 - Autonomous sending.
-
