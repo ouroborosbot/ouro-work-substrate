@@ -21,3 +21,14 @@ jobs:
       - run: docker build -f apps/mail-control/Dockerfile -t ouro-mail-control:ci .
       - run: docker build -f apps/mail-ingress/Dockerfile -t ouro-mail-ingress:ci .
       - run: docker build -f apps/vault-control/Dockerfile -t ouro-vault-control:ci .
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:coverage

@@ -18,9 +18,11 @@ interface Bucket {
   resetAt: number
 }
 
-const buckets = new Map<string, Bucket>()
+class PayloadTooLargeError extends Error {
+  readonly statusCode = 413
+}
 
-function takeRateLimit(key: string, windowMs: number, max: number): boolean {
+function takeRateLimit(buckets: Map<string, Bucket>, key: string, windowMs: number, max: number): boolean {
   const now = Date.now()
   const bucket = buckets.get(key)
   if (!bucket || bucket.resetAt <= now) {
@@ -56,17 +58,26 @@ function readBody(request: http.IncomingMessage, maxBytes = 1024 * 1024): Promis
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
     let total = 0
+    let tooLarge = false
     request.on("data", (chunk: Buffer) => {
+      /* v8 ignore next -- extra data events after rejection only drain an already-failed request. */
+      if (tooLarge) return
       total += chunk.byteLength
       if (total > maxBytes) {
-        reject(new Error("request body too large"))
-        request.destroy()
+        tooLarge = true
+        reject(new PayloadTooLargeError("request body too large"))
+        request.resume()
         return
       }
       chunks.push(chunk)
     })
-    request.on("error", reject)
-    request.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")))
+    /* v8 ignore next 3 -- low-level request stream errors require a broken client socket. */
+    request.on("error", (error) => {
+      if (!tooLarge) reject(error)
+    })
+    request.on("end", () => {
+      if (!tooLarge) resolve(Buffer.concat(chunks).toString("utf-8"))
+    })
   })
 }
 
@@ -91,7 +102,14 @@ function validateOptionalText(value: unknown, fallback?: string): string | undef
   return value
 }
 
+function errorStatus(error: unknown, reason: string): number {
+  if (error instanceof PayloadTooLargeError) return error.statusCode
+  if (reason.includes("must") || reason.includes("valid") || reason.includes("Unexpected") || reason.includes("JSON")) return 400
+  return 500
+}
+
 export function createMailControlServer(options: MailControlOptions): http.Server {
+  const buckets = new Map<string, Bucket>()
   return http.createServer(async (request, response) => {
     try {
       if (request.method === "GET" && request.url === "/health") {
@@ -115,8 +133,9 @@ export function createMailControlServer(options: MailControlOptions): http.Serve
         json(response, 401, { ok: false, error: "unauthorized" })
         return
       }
+      /* v8 ignore next -- accepted Node HTTP sockets carry a remoteAddress. */
       const rateKey = `${request.socket.remoteAddress ?? "unknown"}`
-      if (!takeRateLimit(rateKey, options.rateLimitWindowMs ?? 60_000, options.rateLimitMax ?? 60)) {
+      if (!takeRateLimit(buckets, rateKey, options.rateLimitWindowMs ?? 60_000, options.rateLimitMax ?? 60)) {
         json(response, 429, { ok: false, error: "rate limited" })
         return
       }
@@ -159,7 +178,7 @@ export function createMailControlServer(options: MailControlOptions): http.Serve
         message: "mail control request failed",
         meta: { reason },
       })
-      json(response, reason.includes("must") || reason.includes("Unexpected") ? 400 : 500, { ok: false, error: reason })
+      json(response, errorStatus(error, reason), { ok: false, error: reason })
     }
   })
 }

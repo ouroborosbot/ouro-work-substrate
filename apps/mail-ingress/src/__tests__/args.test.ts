@@ -30,13 +30,22 @@ describe("mail ingress args", () => {
       "registry-base64=abc",
       "azure-account-url=https://storage.blob.core.windows.net",
       "azure-container=mail",
+      "azure-managed-identity-client-id=identity-client-id",
       "smtp-port=25",
+      "http-port=8082",
+      "registry-domain=OURO.BOT",
+      "max-message-bytes=1024",
+      "ignored=value",
     ])
 
     expect(parsed.registryBase64).toBe("abc")
     expect(parsed.azureAccountUrl).toBe("https://storage.blob.core.windows.net")
     expect(parsed.azureContainer).toBe("mail")
+    expect(parsed.azureManagedIdentityClientId).toBe("identity-client-id")
     expect(parsed.smtpPort).toBe(25)
+    expect(parsed.httpPort).toBe(8082)
+    expect(parsed.registryDomain).toBe("OURO.BOT")
+    expect(parsed.maxMessageBytes).toBe(1024)
   })
 
   it("reads registry JSON from file or base64", () => {
@@ -53,6 +62,29 @@ describe("mail ingress args", () => {
   it("requires both routing and storage configuration", () => {
     expect(() => parseMailIngressArgs(["--store", "/tmp/mail"])).toThrow("Missing --registry")
     expect(() => parseMailIngressArgs(["--registry", "/tmp/registry.json"])).toThrow("Missing --store")
+  })
+
+  it("rejects invalid ports and numbers", () => {
+    expect(() => parseMailIngressArgs([
+      "--registry", "/tmp/registry.json",
+      "--store", "/tmp/mail",
+      "--smtp-port", "70000",
+    ])).toThrow("--smtp-port must be a TCP port")
+    expect(() => parseMailIngressArgs([
+      "--registry", "/tmp/registry.json",
+      "--store", "/tmp/mail",
+      "--registry-refresh-ms", "-1",
+    ])).toThrow("--registry-refresh-ms must be a non-negative integer")
+    expect(() => parseMailIngressArgs([
+      "--registry=/tmp/registry.json",
+      "--store", "/tmp/mail",
+    ])).toThrow("Missing --registry")
+    expect(() => parseMailIngressArgs([
+      "--registry", "/tmp/registry.json",
+      "--store", "/tmp/mail",
+      "--smtp-port",
+    ])).toThrow("--smtp-port must be a non-negative integer")
+    expect(() => readRegistry({})).toThrow("Missing registry path")
   })
 
   it("supports a dynamic Azure Blob registry", () => {

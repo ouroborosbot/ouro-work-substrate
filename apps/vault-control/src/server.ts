@@ -21,6 +21,10 @@ interface CreateVaultRequest {
   masterPassword?: unknown
 }
 
+class PayloadTooLargeError extends Error {
+  readonly statusCode = 413
+}
+
 function json(response: http.ServerResponse, status: number, body: unknown): void {
   const text = JSON.stringify(body)
   response.writeHead(status, {
@@ -34,17 +38,26 @@ function readBody(request: http.IncomingMessage, maxBytes = 1024 * 1024): Promis
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
     let total = 0
+    let tooLarge = false
     request.on("data", (chunk: Buffer) => {
+      /* v8 ignore next -- extra data events after rejection only drain an already-failed request. */
+      if (tooLarge) return
       total += chunk.byteLength
       if (total > maxBytes) {
-        reject(new Error("request body too large"))
-        request.destroy()
+        tooLarge = true
+        reject(new PayloadTooLargeError("request body too large"))
+        request.resume()
         return
       }
       chunks.push(chunk)
     })
-    request.on("error", reject)
-    request.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")))
+    /* v8 ignore next 3 -- low-level request stream errors require a broken client socket. */
+    request.on("error", (error) => {
+      if (!tooLarge) reject(error)
+    })
+    request.on("end", () => {
+      if (!tooLarge) resolve(Buffer.concat(chunks).toString("utf-8"))
+    })
   })
 }
 
@@ -83,11 +96,13 @@ function validatePassword(value: unknown): string {
 }
 
 function remoteKey(request: http.IncomingMessage, email: string): string {
+  /* v8 ignore next -- accepted Node HTTP sockets carry a remoteAddress. */
   return `${request.socket.remoteAddress ?? "unknown"}:${email}`
 }
 
 function errorStatus(reason: string): number {
-  if (reason.includes("must") || reason.includes("valid") || reason.includes("Unexpected")) return 400
+  if (reason === "request body too large") return 413
+  if (reason.includes("must") || reason.includes("valid") || reason.includes("Unexpected") || reason.includes("JSON")) return 400
   return 500
 }
 
@@ -129,6 +144,7 @@ export function createVaultControlServer(options: VaultControlOptions): http.Ser
         serverUrl: options.vaultServerUrl,
         email,
         masterPassword,
+        /* v8 ignore next -- createVaultAccount covers global fetch; server tests inject fetch to keep local HTTP calls unmocked. */
         ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
       })
       if (!result.success) {
@@ -150,6 +166,7 @@ export function createVaultControlServer(options: VaultControlOptions): http.Ser
       })
       json(response, 201, { ok: true, email, serverUrl: result.serverUrl })
     } catch (error) {
+      /* v8 ignore next -- server catch paths come from Error-throwing platform APIs in production. */
       const reason = error instanceof Error ? error.message : String(error)
       logEvent({
         level: "error",

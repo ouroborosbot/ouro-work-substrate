@@ -18,13 +18,18 @@ describe("vault control args", () => {
       "vault-server-url=https://vault.example.com",
       `admin-token-file=${tokenFile}`,
       "allowed-email-domain=ouro.bot",
+      "host=127.0.0.1",
       "port=8090",
+      "rate-limit-window-ms=500",
       "rate-limit-max=4",
+      "unknown=value",
     ])
 
     expect(parsed.adminToken).toBe("secret-token")
     expect(parsed.vaultServerUrl).toBe("https://vault.example.com")
+    expect(parsed.host).toBe("127.0.0.1")
     expect(parsed.port).toBe(8090)
+    expect(parsed.rateLimitWindowMs).toBe(500)
     expect(parsed.rateLimitMax).toBe(4)
   })
 
@@ -36,5 +41,26 @@ describe("vault control args", () => {
 
     expect(parsed.allowUnauthenticatedLocal).toBe(true)
   })
-})
 
+  it("rejects invalid numeric arguments", () => {
+    expect(() => parseVaultControlArgs([
+      "--vault-server-url", "https://vault.example.com",
+      "--allow-unauthenticated-local",
+      "--port", "70000",
+    ])).toThrow("--port must be a TCP port")
+    expect(() => parseVaultControlArgs([
+      "--vault-server-url", "https://vault.example.com",
+      "--allow-unauthenticated-local",
+      "--rate-limit-window-ms", "-1",
+    ])).toThrow("--rate-limit-window-ms must be a non-negative integer")
+    expect(() => parseVaultControlArgs([
+      "--vault-server-url=https://vault.example.com",
+      "--allow-unauthenticated-local",
+    ])).toThrow("Missing --vault-server-url")
+    expect(() => parseVaultControlArgs([
+      "--vault-server-url", "https://vault.example.com",
+      "--allow-unauthenticated-local",
+      "--port",
+    ])).toThrow("--port must be a non-negative integer")
+  })
+})

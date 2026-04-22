@@ -36,6 +36,15 @@ describe("mail ingress store", () => {
     })
 
     expect(result.accepted).toHaveLength(1)
+    const duplicate = await ingestRawMailToStore({
+      registry: ensured.registry,
+      store,
+      envelope: { mailFrom: "travel@example.com", rcptTo: [alias] },
+      rawMime: raw,
+      privateEnvelope: parsed.privateEnvelope,
+      ...(parsed.authentication ? { authentication: parsed.authentication } : {}),
+    })
+    expect(duplicate.accepted[0]?.id).toBe(result.accepted[0]?.id)
     expect(result.accepted[0]?.placement).toBe("imbox")
     expect(result.accepted[0]?.authentication?.spf).toBe("pass")
     const stored = await store.getMessage(result.accepted[0]!.id)
@@ -43,6 +52,26 @@ describe("mail ingress store", () => {
     expect(decryptStoredMailMessage(stored!, ensured.keys).private.subject).toBe("Flight updated")
     const rawPayload = await store.readRawPayload(stored!.rawObject)
     expect(decryptMailPayload(rawPayload!, ensured.keys[rawPayload!.keyId]!).toString("utf-8")).toContain("Boarding moved")
+    expect(await store.getMessage("missing")).toBeNull()
+    expect(await store.readRawPayload("raw/missing.json")).toBeNull()
+  })
+
+  it("stores accepted native mail without authentication metadata", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-store-"))
+    const ensured = ensureMailboxRegistry({ agentId: "slugger" })
+    const raw = Buffer.from("From: ari@mendelow.me\r\nTo: slugger@ouro.bot\r\nSubject: Hi\r\n\r\nHi", "utf-8")
+    const parsed = await parsePrivateMailEnvelope(raw)
+
+    const result = await ingestRawMailToStore({
+      registry: ensured.registry,
+      store: new FileMailroomStore(dir),
+      envelope: { mailFrom: "ari@mendelow.me", rcptTo: ["slugger@ouro.bot"] },
+      rawMime: raw,
+      privateEnvelope: parsed.privateEnvelope,
+    })
+
+    expect(result.accepted[0]?.authentication).toBeUndefined()
+    expect(result.accepted[0]?.placement).toBe("screener")
   })
 
   it("rejects unknown recipients without storing", async () => {
@@ -63,4 +92,3 @@ describe("mail ingress store", () => {
     expect(result.rejectedRecipients).toEqual(["no@ouro.bot"])
   })
 })
-

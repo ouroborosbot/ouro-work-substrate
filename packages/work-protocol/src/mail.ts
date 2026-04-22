@@ -281,7 +281,8 @@ export function sourceAliasForOwner(input: {
   const domain = (input.domain ?? "ouro.bot").toLowerCase()
   const route = reverseEmailRoute(input.ownerEmail)
   const agentPart = safeAddressPart(input.agentId) || "agent"
-  const sourcePart = input.sourceTag ? `.${safeAddressPart(input.sourceTag)}` : ""
+  const safeSourceTag = input.sourceTag ? safeAddressPart(input.sourceTag) : ""
+  const sourcePart = safeSourceTag ? `.${safeSourceTag}` : ""
   const preferredLocal = `${route}${sourcePart}.${agentPart}`
   const local = preferredLocal.length <= LOCAL_PART_LIMIT
     ? preferredLocal

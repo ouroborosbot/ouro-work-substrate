@@ -3,7 +3,7 @@ import * as http from "node:http"
 import * as os from "node:os"
 import * as path from "node:path"
 import { describe, expect, it } from "vitest"
-import { createMailControlServer } from "../server"
+import { createMailControlServer, startMailControlServer } from "../server"
 import { FileMailRegistryStore } from "../store"
 
 function listen(server: http.Server): Promise<number> {
@@ -16,6 +16,30 @@ function listen(server: http.Server): Promise<number> {
 }
 
 describe("mail control server", () => {
+  it("serves health and rejects unknown routes", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-server-"))
+    const server = createMailControlServer({
+      store: new FileMailRegistryStore(path.join(dir, "registry.json"), "ouro.bot"),
+      adminToken: "secret",
+      allowedEmailDomain: "ouro.bot",
+    })
+    const port = await listen(server)
+    try {
+      const health = await fetch(`http://127.0.0.1:${port}/health`)
+      expect(await health.json()).toEqual(expect.objectContaining({
+        ok: true,
+        service: "ouro-mail-control",
+        domain: "ouro.bot",
+        mailboxes: 0,
+        sourceGrants: 0,
+      }))
+      const missing = await fetch(`http://127.0.0.1:${port}/missing`, { method: "POST" })
+      expect(missing.status).toBe(404)
+    } finally {
+      server.close()
+    }
+  })
+
   it("requires bearer auth for mailbox creation", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-server-"))
     const server = createMailControlServer({
@@ -26,6 +50,29 @@ describe("mail control server", () => {
     const port = await listen(server)
     try {
       const response = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, { method: "POST" })
+      expect(response.status).toBe(401)
+      const malformed = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, {
+        method: "POST",
+        headers: { authorization: "Token nope" },
+      })
+      expect(malformed.status).toBe(401)
+    } finally {
+      server.close()
+    }
+  })
+
+  it("rejects mutation when no expected token is configured", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-no-token-"))
+    const server = createMailControlServer({
+      store: new FileMailRegistryStore(path.join(dir, "registry.json"), "ouro.bot"),
+      allowedEmailDomain: "ouro.bot",
+    })
+    const port = await listen(server)
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, {
+        method: "POST",
+        headers: { authorization: "Bearer secret" },
+      })
       expect(response.status).toBe(401)
     } finally {
       server.close()
@@ -74,6 +121,191 @@ describe("mail control server", () => {
     }
   })
 
+  it("allows explicit unauthenticated local setup", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-local-"))
+    const server = createMailControlServer({
+      store: new FileMailRegistryStore(path.join(dir, "registry.json"), "ouro.bot"),
+      allowedEmailDomain: "ouro.bot",
+      allowUnauthenticatedLocal: true,
+    })
+    const port = await listen(server)
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ agentId: "slugger" }),
+      })
+      expect(response.status).toBe(200)
+    } finally {
+      server.close()
+    }
+  })
+
+  it("validates request bodies and rate limits callers", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-validate-"))
+    const server = createMailControlServer({
+      store: new FileMailRegistryStore(path.join(dir, "registry.json"), "ouro.bot"),
+      adminToken: "secret",
+      allowedEmailDomain: "ouro.bot",
+    })
+    const port = await listen(server)
+    try {
+      const invalid = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ agentId: "slugger", ownerEmail: "not-mail" }),
+      })
+      expect(invalid.status).toBe(400)
+
+      const badOwnerType = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ agentId: "slugger", ownerEmail: 42 }),
+      })
+      expect(badOwnerType.status).toBe(400)
+
+      const badAgent = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ agentId: "!" }),
+      })
+      expect(badAgent.status).toBe(400)
+
+      const badSource = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ agentId: "slugger", source: "x".repeat(65) }),
+      })
+      expect(badSource.status).toBe(400)
+
+      const invalidJson = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: "{",
+      })
+      expect(invalidJson.status).toBe(400)
+
+      const tooLarge = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: "x".repeat(1024 * 1024 + 1),
+      })
+      expect(tooLarge.status).toBe(413)
+    } finally {
+      server.close()
+    }
+  })
+
+  it("surfaces unexpected store errors without leaking control flow", async () => {
+    const server = createMailControlServer({
+      store: {
+        async read() {
+          return { registry: { schemaVersion: 1, domain: "ouro.bot", mailboxes: [], sourceGrants: [] }, revision: "0:0:72" }
+        },
+        async ensureMailbox() {
+          throw "store offline"
+        },
+      },
+      adminToken: "secret",
+      allowedEmailDomain: "ouro.bot",
+    })
+    const port = await listen(server)
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ agentId: "slugger" }),
+      })
+      const body = await response.json() as Record<string, unknown>
+      expect(response.status).toBe(500)
+      expect(body.error).toBe("store offline")
+    } finally {
+      server.close()
+    }
+  })
+
+  it("rate limits callers after the allowed window count", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-rate-"))
+    const server = createMailControlServer({
+      store: new FileMailRegistryStore(path.join(dir, "registry.json"), "ouro.bot"),
+      adminToken: "secret",
+      allowedEmailDomain: "ouro.bot",
+      rateLimitMax: 1,
+    })
+    const port = await listen(server)
+    try {
+      const first = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ agentId: "slugger" }),
+      })
+      expect(first.status).toBe(200)
+      const limited = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ agentId: "clio" }),
+      })
+      expect(limited.status).toBe(429)
+    } finally {
+      server.close()
+    }
+  })
+
+  it("defaults delegated sources and persists source tags", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-source-"))
+    const server = createMailControlServer({
+      store: new FileMailRegistryStore(path.join(dir, "registry.json"), "ouro.bot"),
+      adminToken: "secret",
+      allowedEmailDomain: "ouro.bot",
+    })
+    const port = await listen(server)
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          agentId: "slugger",
+          ownerEmail: "ari@mendelow.me",
+          sourceTag: "calendar",
+        }),
+      })
+      const body = await response.json() as Record<string, unknown>
+      expect(body.sourceAlias).toBe("me.mendelow.ari.calendar.slugger@ouro.bot")
+    } finally {
+      server.close()
+    }
+  })
+
   it("reads token files at request time so rotations do not require process restart", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-token-"))
     const tokenFile = path.join(dir, "token")
@@ -95,6 +327,23 @@ describe("mail control server", () => {
         body: JSON.stringify({ agentId: "slugger" }),
       })
       expect(response.status).toBe(200)
+    } finally {
+      server.close()
+    }
+  })
+
+  it("starts on an explicit host and port", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-start-"))
+    const server = startMailControlServer({
+      store: new FileMailRegistryStore(path.join(dir, "registry.json"), "ouro.bot"),
+      adminToken: "secret",
+      allowedEmailDomain: "ouro.bot",
+      host: "127.0.0.1",
+      port: 0,
+    })
+    try {
+      await new Promise((resolve) => server.once("listening", resolve))
+      expect(server.address()).toEqual(expect.objectContaining({ address: "127.0.0.1" }))
     } finally {
       server.close()
     }

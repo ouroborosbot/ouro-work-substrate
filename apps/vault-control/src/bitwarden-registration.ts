@@ -24,6 +24,7 @@ export interface VaultRegistrationPayload {
 export function deriveMasterKey(password: string, email: string, iterations: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     crypto.pbkdf2(password, email.toLowerCase(), iterations, 32, "sha256", (err, key) => {
+      /* v8 ignore next -- core crypto callback failures are not practically inducible here. */
       if (err) reject(err)
       else resolve(key)
     })
@@ -33,6 +34,7 @@ export function deriveMasterKey(password: string, email: string, iterations: num
 export function deriveMasterPasswordHash(masterKey: Buffer, password: string): Promise<string> {
   return new Promise((resolve, reject) => {
     crypto.pbkdf2(masterKey, password, 1, 32, "sha256", (err, hash) => {
+      /* v8 ignore next -- core crypto callback failures are not practically inducible here. */
       if (err) reject(err)
       else resolve(hash.toString("base64"))
     })
@@ -161,4 +163,3 @@ export async function createVaultAccount(input: {
     }
   }
 }
-
