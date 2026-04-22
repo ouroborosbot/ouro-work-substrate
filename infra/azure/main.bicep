@@ -337,8 +337,6 @@ resource mailControl 'Microsoft.App/containerApps@2024-03-01' = {
           args: [
             '--azure-account-url'
             'https://${storage.name}.blob.${az.environment().suffixes.storage}'
-            '--azure-container'
-            mailContainerName
             '--azure-managed-identity-client-id'
             identity.properties.clientId
             '--registry-container'

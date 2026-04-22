@@ -1,4 +1,7 @@
 import * as http from "node:http"
+import * as fs from "node:fs"
+import * as os from "node:os"
+import * as path from "node:path"
 import { describe, expect, it } from "vitest"
 import { createVaultControlServer } from "../server"
 
@@ -84,6 +87,42 @@ describe("vault control server", () => {
         }),
       })
       expect(response.status).toBe(400)
+    } finally {
+      server.close()
+    }
+  })
+
+  it("reads token files at request time so rotations do not require process restart", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-vault-control-token-"))
+    const tokenFile = path.join(dir, "token")
+    fs.writeFileSync(tokenFile, "first", "utf-8")
+    let captured = false
+    const server = createVaultControlServer({
+      vaultServerUrl: "https://vault.example.com",
+      adminTokenFile: tokenFile,
+      allowedEmailDomain: "ouro.bot",
+      fetchImpl: (async () => {
+        captured = true
+        return new Response("{}", { status: 200 })
+      }) as typeof fetch,
+    })
+    const port = await listen(server)
+    try {
+      fs.writeFileSync(tokenFile, "second", "utf-8")
+      const response = await fetch(`http://127.0.0.1:${port}/v1/vaults`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer second",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          agentId: "slugger",
+          email: "slugger@ouro.bot",
+          masterPassword: "Correct Horse Battery Staple! 2026",
+        }),
+      })
+      expect(response.status).toBe(201)
+      expect(captured).toBe(true)
     } finally {
       server.close()
     }

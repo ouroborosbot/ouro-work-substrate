@@ -24,6 +24,7 @@ export function runMailControl(args: string[] = process.argv.slice(2)): ReturnTy
   return startMailControlServer({
     store: createStore(parsed),
     ...(parsed.adminToken ? { adminToken: parsed.adminToken } : {}),
+    ...(parsed.adminTokenFile ? { adminTokenFile: parsed.adminTokenFile } : {}),
     allowedEmailDomain: parsed.allowedEmailDomain,
     rateLimitWindowMs: parsed.rateLimitWindowMs,
     rateLimitMax: parsed.rateLimitMax,

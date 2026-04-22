@@ -1,10 +1,12 @@
 import * as http from "node:http"
+import * as fs from "node:fs"
 import type { MailRegistryStore } from "./store"
 import { logEvent } from "./log"
 
 export interface MailControlOptions {
   store: MailRegistryStore
   adminToken?: string
+  adminTokenFile?: string
   allowedEmailDomain: string
   rateLimitWindowMs?: number
   rateLimitMax?: number
@@ -43,6 +45,11 @@ function bearerToken(request: http.IncomingMessage): string | null {
   const header = request.headers.authorization
   if (!header) return null
   return header.match(/^Bearer\s+(.+)$/i)?.[1] ?? null
+}
+
+function expectedAdminToken(options: Pick<MailControlOptions, "adminToken" | "adminTokenFile">): string | undefined {
+  if (options.adminTokenFile) return fs.readFileSync(options.adminTokenFile, "utf-8").trim()
+  return options.adminToken
 }
 
 function readBody(request: http.IncomingMessage, maxBytes = 1024 * 1024): Promise<string> {
@@ -103,7 +110,8 @@ export function createMailControlServer(options: MailControlOptions): http.Serve
         json(response, 404, { ok: false, error: "not found" })
         return
       }
-      if (!options.allowUnauthenticatedLocal && (!options.adminToken || bearerToken(request) !== options.adminToken)) {
+      const expectedToken = expectedAdminToken(options)
+      if (!options.allowUnauthenticatedLocal && (!expectedToken || bearerToken(request) !== expectedToken)) {
         json(response, 401, { ok: false, error: "unauthorized" })
         return
       }

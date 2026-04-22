@@ -1,4 +1,5 @@
 import * as http from "node:http"
+import * as fs from "node:fs"
 import { createVaultAccount } from "./bitwarden-registration"
 import { InMemoryRateLimiter } from "./rate-limit"
 import { logEvent } from "./log"
@@ -6,6 +7,7 @@ import { logEvent } from "./log"
 export interface VaultControlOptions {
   vaultServerUrl: string
   adminToken?: string
+  adminTokenFile?: string
   allowedEmailDomain: string
   rateLimitWindowMs?: number
   rateLimitMax?: number
@@ -53,6 +55,11 @@ function bearerToken(request: http.IncomingMessage): string | null {
   return match?.[1] ?? null
 }
 
+function expectedAdminToken(options: Pick<VaultControlOptions, "adminToken" | "adminTokenFile">): string | undefined {
+  if (options.adminTokenFile) return fs.readFileSync(options.adminTokenFile, "utf-8").trim()
+  return options.adminToken
+}
+
 function validateAgentId(value: unknown): string {
   if (typeof value !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{1,62}$/.test(value)) {
     throw new Error("agentId must be 2-63 characters of letters, numbers, underscore, or hyphen")
@@ -98,7 +105,8 @@ export function createVaultControlServer(options: VaultControlOptions): http.Ser
       }
       if (!options.allowUnauthenticatedLocal) {
         const supplied = bearerToken(request)
-        if (!options.adminToken || supplied !== options.adminToken) {
+        const expectedToken = expectedAdminToken(options)
+        if (!expectedToken || supplied !== expectedToken) {
           json(response, 401, { ok: false, error: "unauthorized" })
           return
         }
