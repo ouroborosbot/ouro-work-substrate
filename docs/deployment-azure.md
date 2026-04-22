@@ -35,7 +35,7 @@ gh secret set MAIL_CONTROL_ADMIN_TOKEN --repo ouroborosbot/ouro-work-substrate
 gh secret set VAULT_CONTROL_ADMIN_TOKEN --repo ouroborosbot/ouro-work-substrate
 ```
 
-After that, merges to `main` deploy automatically after green CI.
+After that, runtime, infrastructure, and workflow changes merged to `main` deploy automatically after green CI. Docs-only changes pass CI and skip Azure rollout.
 
 Manual deploy is still available for repairs, token rotation, and proof-port changes:
 

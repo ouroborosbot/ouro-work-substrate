@@ -74,7 +74,7 @@ The second one matters because the deploy workflow uses the `prod` GitHub Enviro
 
 ## Deploy
 
-Merges to `main` deploy automatically after the `CI` workflow completes successfully. The deploy workflow checks out the exact CI-tested commit, builds all service images, pushes them to ACR, and applies the Container Apps Bicep deployment.
+Runtime, infrastructure, and workflow changes merged to `main` deploy automatically after the `CI` workflow completes successfully. Docs-only changes pass CI but skip Azure rollout. When deployment is needed, the workflow checks out the exact CI-tested commit, builds all service images, pushes them to ACR, and applies the Container Apps Bicep deployment.
 
 Use manual deployment for intentional redeploys, token rotation, or proof-port changes:
 

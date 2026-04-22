@@ -12,7 +12,8 @@ A change should not be considered production-ready unless these are true:
 - GitHub `CI` passes on the PR.
 - `main` is protected by the `test` status check.
 - The deploy path uses GitHub OIDC, not long-lived Azure secrets.
-- Merges to `main` deploy only after green CI.
+- Runtime, infrastructure, and workflow changes merged to `main` deploy only after green CI.
+- Docs-only changes skip Azure rollout.
 - The deployed services expose healthy `/health` endpoints.
 - Mail Control and Mail Ingress agree on mailbox/source-grant counts.
 - Mailbox ensure is idempotent.
