@@ -37,7 +37,7 @@ The current Azure production proof is live on Container Apps:
 - Mail Ingress: HTTP health plus proof SMTP TCP ingress on port `2525`.
 - Vault Control: authenticated Vaultwarden account creation control plane.
 - Storage: Azure Blob Storage with encrypted mail records.
-- Deploys: `main` deploys automatically after green CI through GitHub OIDC.
+- Deploys: runtime, infrastructure, and workflow changes on `main` deploy automatically after green CI through GitHub OIDC. Docs-only changes pass CI but skip Azure rollout.
 
 Production MX/DNS cutover, HEY forwarding/export, browser auth/MFA, and autonomous sending remain explicit human-at-keyboard gates.
 

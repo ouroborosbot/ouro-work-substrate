@@ -9,7 +9,7 @@ This doc is the memory of how the deploy story changed. Keep it honest. A future
 - Hosted service code lives here: shared protocol, Mail Ingress, Mail Control, Vault Control, Dockerfiles, and Azure infra.
 - The Ouroboros harness still owns local setup commands, the Mail sense, bounded mail tools, local development stores, and Ouro Outlook.
 - Azure proof deployment is live from this repo.
-- `main` deploys automatically after green CI through GitHub OIDC.
+- Runtime, infrastructure, and workflow changes on `main` deploy automatically after green CI through GitHub OIDC; docs-only changes skip Azure rollout.
 - Mail proof SMTP is on port `2525`.
 - Production DNS/MX cutover has not happened.
 - Autonomous sending is not enabled.
@@ -57,9 +57,9 @@ Status: open. Do not publish production MX until this is proven.
 
 ### Phase 4: Deployment Automation
 
-Phase 4 is deploy-after-green-CI automation. It should use the exact CI-tested commit, Azure OIDC, ACR image tags tied to the commit SHA, and serialized environment deployment.
+Phase 4 is deploy-after-green-CI automation. It should use the exact CI-tested commit, Azure OIDC, ACR image tags tied to the commit SHA, serialized environment deployment, and docs-only skip behavior.
 
-Status: complete. A workflow-run deploy now starts after successful `CI` on `main`, and the `prod` GitHub Environment OIDC subject is authorized in Azure.
+Status: complete. A workflow-run deploy now starts after successful `CI` on `main`, skips docs-only commits, and the `prod` GitHub Environment OIDC subject is authorized in Azure.
 
 Manual deployment remains available for token rotation, repairs, and proof-port changes.
 
