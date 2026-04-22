@@ -146,3 +146,4 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 ## Progress Log
 - 2026-04-22 13:09 Created
 - 2026-04-22 13:10 Added scrutiny findings for TLS, abuse controls, outbound status, DNS ownership, and delegated HEY forwarding
+- 2026-04-22 13:29 Expanded plan to full-moon scope across substrate, harness, DNS, HEY onboarding, outbound, recovery, deployment, and live smoke tests
