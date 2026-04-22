@@ -6,6 +6,7 @@ export function runVaultControl(args: string[] = process.argv.slice(2)): ReturnT
   return startVaultControlServer({
     vaultServerUrl: parsed.vaultServerUrl,
     ...(parsed.adminToken ? { adminToken: parsed.adminToken } : {}),
+    ...(parsed.adminTokenFile ? { adminTokenFile: parsed.adminTokenFile } : {}),
     allowedEmailDomain: parsed.allowedEmailDomain,
     rateLimitWindowMs: parsed.rateLimitWindowMs,
     rateLimitMax: parsed.rateLimitMax,

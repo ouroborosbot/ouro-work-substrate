@@ -73,4 +73,30 @@ describe("mail control server", () => {
       server.close()
     }
   })
+
+  it("reads token files at request time so rotations do not require process restart", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-token-"))
+    const tokenFile = path.join(dir, "token")
+    fs.writeFileSync(tokenFile, "first", "utf-8")
+    const server = createMailControlServer({
+      store: new FileMailRegistryStore(path.join(dir, "registry.json"), "ouro.bot"),
+      adminTokenFile: tokenFile,
+      allowedEmailDomain: "ouro.bot",
+    })
+    const port = await listen(server)
+    try {
+      fs.writeFileSync(tokenFile, "second", "utf-8")
+      const response = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer second",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ agentId: "slugger" }),
+      })
+      expect(response.status).toBe(200)
+    } finally {
+      server.close()
+    }
+  })
 })
