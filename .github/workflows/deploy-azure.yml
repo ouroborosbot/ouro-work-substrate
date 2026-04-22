@@ -1,6 +1,13 @@
 name: Deploy Azure
 
 on:
+  workflow_run:
+    workflows:
+      - CI
+    branches:
+      - main
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       environment_name:
@@ -21,18 +28,24 @@ permissions:
   id-token: write
 
 concurrency:
-  group: azure-${{ inputs.environment_name }}
+  group: azure-${{ inputs.environment_name || vars.AZURE_ENVIRONMENT_NAME || 'prod' }}
   cancel-in-progress: false
 
 jobs:
   deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment_name || vars.AZURE_ENVIRONMENT_NAME || 'prod' }}
     env:
       AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
-      AZURE_LOCATION: ${{ inputs.location }}
-      AZURE_ENVIRONMENT_NAME: ${{ inputs.environment_name }}
+      AZURE_LOCATION: ${{ inputs.location || vars.AZURE_LOCATION || 'eastus2' }}
+      AZURE_ENVIRONMENT_NAME: ${{ inputs.environment_name || vars.AZURE_ENVIRONMENT_NAME || 'prod' }}
+      AZURE_MAIL_EXPOSED_SMTP_PORT: ${{ inputs.mail_exposed_smtp_port || vars.AZURE_MAIL_EXPOSED_SMTP_PORT || '2525' }}
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
 
       - uses: azure/login@v3
         with:
@@ -68,9 +81,9 @@ jobs:
           acr_name="${{ steps.registry.outputs.acr_name }}"
           acr_login_server="${{ steps.registry.outputs.acr_login_server }}"
           az acr login --name "$acr_name"
-          mail_ingress_image="$acr_login_server/ouro-mail-ingress:${GITHUB_SHA}"
-          mail_control_image="$acr_login_server/ouro-mail-control:${GITHUB_SHA}"
-          vault_control_image="$acr_login_server/ouro-vault-control:${GITHUB_SHA}"
+          mail_ingress_image="$acr_login_server/ouro-mail-ingress:${DEPLOY_SHA}"
+          mail_control_image="$acr_login_server/ouro-mail-control:${DEPLOY_SHA}"
+          vault_control_image="$acr_login_server/ouro-vault-control:${DEPLOY_SHA}"
           docker build -f apps/mail-ingress/Dockerfile -t "$mail_ingress_image" .
           docker build -f apps/mail-control/Dockerfile -t "$mail_control_image" .
           docker build -f apps/vault-control/Dockerfile -t "$vault_control_image" .
@@ -103,7 +116,7 @@ jobs:
               vaultControlImage="${{ steps.images.outputs.vault_control_image }}" \
               mailControlAdminToken="$MAIL_CONTROL_ADMIN_TOKEN" \
               vaultControlAdminToken="$VAULT_CONTROL_ADMIN_TOKEN" \
-              mailExposedSmtpPort="${{ inputs.mail_exposed_smtp_port }}"
+              mailExposedSmtpPort="$AZURE_MAIL_EXPOSED_SMTP_PORT"
 
       - name: Show deployment outputs
         shell: bash
