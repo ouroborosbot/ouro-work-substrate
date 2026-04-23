@@ -38,6 +38,12 @@ param mailContainerName string = 'mailroom'
 @description('Mail registry blob name.')
 param mailRegistryBlob string = 'registry/mailroom.json'
 
+@description('Data residency location for Azure Communication Services outbound email.')
+param outboundEmailDataLocation string = 'United States'
+
+@description('Whether the ACS Communication Services resource should link the custom email domain. Leave false until DNS records are verified.')
+param outboundEmailLinkVerifiedDomain bool = false
+
 @description('Virtual network address prefix for the Container Apps environment.')
 param virtualNetworkAddressPrefix string = '10.42.0.0/16'
 
@@ -159,6 +165,35 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     allowBlobPublicAccess: false
     minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true
+  }
+}
+
+resource outboundEmailService 'Microsoft.Communication/emailServices@2026-03-18' = {
+  name: '${prefix}-email'
+  location: 'global'
+  properties: {
+    dataLocation: outboundEmailDataLocation
+  }
+}
+
+resource outboundEmailDomain 'Microsoft.Communication/emailServices/domains@2026-03-18' = {
+  parent: outboundEmailService
+  name: mailDomain
+  location: 'global'
+  properties: {
+    domainManagement: 'CustomerManaged'
+    userEngagementTracking: 'Disabled'
+  }
+}
+
+resource outboundCommunicationService 'Microsoft.Communication/communicationServices@2024-09-01-preview' = {
+  name: '${prefix}-communication'
+  location: 'global'
+  properties: {
+    dataLocation: outboundEmailDataLocation
+    linkedDomains: outboundEmailLinkVerifiedDomain ? [
+      outboundEmailDomain.id
+    ] : []
   }
 }
 
@@ -573,6 +608,32 @@ resource vaultControl 'Microsoft.App/containerApps@2024-03-01' = {
   ]
 }
 
+resource outboundDeliveryEvents 'Microsoft.EventGrid/eventSubscriptions@2025-02-15' = {
+  scope: outboundCommunicationService
+  name: '${prefix}-acs-email-delivery'
+  properties: {
+    destination: {
+      endpointType: 'WebHook'
+      properties: {
+        endpointUrl: 'https://${mailControl.properties.configuration.ingress.fqdn}/v1/outbound/events/azure-communication-services'
+        maxEventsPerBatch: 1
+        minimumTlsVersionAllowed: '1.2'
+        preferredBatchSizeInKilobytes: 64
+      }
+    }
+    eventDeliverySchema: 'EventGridSchema'
+    filter: {
+      includedEventTypes: [
+        'Microsoft.Communication.EmailDeliveryReportReceived'
+      ]
+    }
+    retryPolicy: {
+      eventTimeToLiveInMinutes: 1440
+      maxDeliveryAttempts: 10
+    }
+  }
+}
+
 output containerRegistryName string = registry.name
 output containerRegistryLoginServer string = registry.properties.loginServer
 output mailIngressFqdn string = mailIngress.properties.configuration.ingress.fqdn
@@ -580,3 +641,10 @@ output mailSmtpPort int = mailExposedSmtpPort
 output mailStorageAccountUrl string = 'https://${storage.name}.blob.${az.environment().suffixes.storage}'
 output mailControlFqdn string = mailControl.properties.configuration.ingress.fqdn
 output vaultControlFqdn string = vaultControl.properties.configuration.ingress.fqdn
+output outboundAcsEndpoint string = 'https://${outboundCommunicationService.name}.communication.azure.com'
+output outboundCommunicationServiceName string = outboundCommunicationService.name
+output outboundEmailServiceName string = outboundEmailService.name
+output outboundEmailDomainName string = outboundEmailDomain.name
+output outboundEmailDomainVerificationRecords object = outboundEmailDomain.properties.verificationRecords
+output outboundEmailDomainVerificationStates object = outboundEmailDomain.properties.verificationStates
+output outboundDeliveryEventSubscriptionName string = outboundDeliveryEvents.name

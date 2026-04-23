@@ -71,6 +71,24 @@ GitHub repository variables:
 
 Nonstandard exposed SMTP ports are diagnostic-only and must not back an MX record.
 
+Outbound native-agent mail uses Azure Communication Services Email. The Bicep deploy owns the Email Communication Service, the CustomerManaged `ouro.bot` email domain, the Communication Services resource, and an Event Grid subscription for `Microsoft.Communication.EmailDeliveryReportReceived` events. The domain starts unlinked until the DNS verification records are applied and verified; only then set `outboundEmailLinkVerifiedDomain=true` for the deploy that links the custom domain to the Communication Services resource.
+
+The ACS access key is not a harness-managed `ouro connect` credential. Store it as an ordinary Slugger vault item, then reference that item from `mailroom.outbound` in runtime config:
+
+```json
+{
+  "transport": "azure-communication-services",
+  "endpoint": "https://ouro-prod-communication.communication.azure.com",
+  "senderAddress": "slugger@ouro.bot",
+  "credentialItem": "ops/mail/azure-communication-services/ouro.bot",
+  "credentialFields": {
+    "accessKey": "primaryAccessKey"
+  }
+}
+```
+
+The credential item may have freeform notes for agent/human orientation, but code must read only the explicit `credentialItem` and `credentialFields` binding.
+
 Bootstrap or repair Azure OIDC, repo variables, and resource-group role assignments with:
 
 ```bash
@@ -153,6 +171,8 @@ For Slugger, the expected public addresses are:
 ## Mail Recovery
 
 When live mail, delegated HEY forwarding, Blob access, delivery events, or autonomous-send policy behaves strangely, use [Mail Recovery Runbook](mail-recovery-runbook.md). The repo path is `docs/mail-recovery-runbook.md`. It keeps the failure modes in one place: DNS/MX drift, port 25 or STARTTLS failure, hosted registry/vault key drift, Blob reader/decryption failure, wrong mailbox provenance, HEY backfill/forwarding issues, delivery event gaps, autonomy kill switch, and retained discarded/quarantined recovery.
+
+For outbound event recovery, check the Event Grid subscription named by the deploy output `outboundDeliveryEventSubscriptionName`. Delivery reports post to Mail Control at `/v1/outbound/events/azure-communication-services`; Mail Control validates Event Grid subscription handshakes and reconciles body-safe ACS delivery events into Blob-backed outbound records under `outbound/*.json`. If an event arrives before the matching outbound record is visible, Mail Control stores it under `outbound-events/unmatched/` for audit instead of logging message bodies.
 
 ## Rollback
 
