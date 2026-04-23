@@ -62,7 +62,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 
 **CRITICAL: Every unit header MUST start with status emoji (⬜ for new units).**
 
-### 🔄 Unit 0: Workspace And Foundation Baseline
+### ✅ Unit 0: Workspace And Foundation Baseline
 **What**: Prepare dedicated worktrees/branches for work-substrate and harness, record current dirty-state boundaries, reread foundation task docs, and capture the live baseline for DNS, Azure, GitHub, harness Mail sense, Slugger vault readiness, and deployed services.
 **Output**: Baseline artifact with repo/worktree paths, current commits, live DNS/Azure facts, foundation-doc summary, and immediate blockers.
 **Acceptance**: Baseline proves no user changes were overwritten, names the active remotes/branches, and confirms which human inputs are genuinely missing before implementation begins.
@@ -230,4 +230,5 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 17:25 Captured post-compaction credential-orientation correction: generic vault item first, workflow binding second, provider template last.
 - 2026-04-22 17:36 Promoted the generic harness vault item surface from documentation debt into first-order Units 0a-0c before DNS/mail implementation.
 - 2026-04-22 17:45 Rewrote credential orientation to the stricter primitive: vault item/credential with no assumed use; workflows bind to items outside the item; notes are never machine contracts.
-- 2026-04-22 18:10 Mapped the documentation and surface fix: harness origin currently teaches `Operational Credentials` plus `vault ops porkbun`; implementation must make `ouro vault item` canonical and reduce provider helpers to templates or deprecated compatibility aliases.
+- 2026-04-22 17:51 Mapped the documentation and surface fix: harness origin currently teaches `Operational Credentials` plus `vault ops porkbun`; implementation must make `ouro vault item` canonical and reduce provider helpers to templates or deprecated compatibility aliases.
+- 2026-04-22 17:56 Unit 0 complete: captured clean substrate and harness worktrees, live DNS/Azure/GitHub/vault facts, foundation mail carry-forward, and genuine remaining human gates in `unit0-baseline.md`.
