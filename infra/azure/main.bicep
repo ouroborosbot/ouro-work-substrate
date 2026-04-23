@@ -608,32 +608,6 @@ resource vaultControl 'Microsoft.App/containerApps@2024-03-01' = {
   ]
 }
 
-resource outboundDeliveryEvents 'Microsoft.EventGrid/eventSubscriptions@2025-02-15' = {
-  scope: outboundCommunicationService
-  name: '${prefix}-acs-email-delivery'
-  properties: {
-    destination: {
-      endpointType: 'WebHook'
-      properties: {
-        endpointUrl: 'https://${mailControl.properties.configuration.ingress.fqdn}/v1/outbound/events/azure-communication-services'
-        maxEventsPerBatch: 1
-        minimumTlsVersionAllowed: '1.2'
-        preferredBatchSizeInKilobytes: 64
-      }
-    }
-    eventDeliverySchema: 'EventGridSchema'
-    filter: {
-      includedEventTypes: [
-        'Microsoft.Communication.EmailDeliveryReportReceived'
-      ]
-    }
-    retryPolicy: {
-      eventTimeToLiveInMinutes: 1440
-      maxDeliveryAttempts: 10
-    }
-  }
-}
-
 output containerRegistryName string = registry.name
 output containerRegistryLoginServer string = registry.properties.loginServer
 output mailIngressFqdn string = mailIngress.properties.configuration.ingress.fqdn
@@ -647,4 +621,4 @@ output outboundEmailServiceName string = outboundEmailService.name
 output outboundEmailDomainName string = outboundEmailDomain.name
 output outboundEmailDomainVerificationRecords object = outboundEmailDomain.properties.verificationRecords
 output outboundEmailDomainVerificationStates object = outboundEmailDomain.properties.verificationStates
-output outboundDeliveryEventSubscriptionName string = outboundDeliveryEvents.name
+output outboundDeliveryEventSubscriptionName string = '${prefix}-acs-email-delivery'
