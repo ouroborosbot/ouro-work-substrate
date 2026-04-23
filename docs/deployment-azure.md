@@ -18,7 +18,7 @@ Mail Ingress exposes HTTP health on the app's primary HTTP ingress and SMTP as a
 
 External TCP ingress also requires a Container Apps environment using a virtual network, so the template creates a delegated Container Apps subnet.
 
-The current production shape exposes public SMTP port `25` as an additional TCP mapping to the app's internal SMTP target port `2525`. The `AZURE_MAIL_EXPOSED_SMTP_PORT` repository variable can still be set to a nonstandard proof port for diagnostics, but MX records must only point at a port-25 edge.
+The current production shape exposes public SMTP port `25` as an additional TCP mapping to the app's internal SMTP target port `2525`. The `AZURE_MAIL_EXPOSED_SMTP_PORT` repository variable must be `25` for production MX. It can still be set to a nonstandard proof port for diagnostics, but MX records must only point at a port-25 edge and the production deploy must be restored to `25` before live mail proof.
 
 Mail Ingress can advertise SMTP `STARTTLS` when the deploy workflow receives both PEM secrets:
 

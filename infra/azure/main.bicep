@@ -50,8 +50,8 @@ param mailHttpPort int = 8080
 @description('SMTP port listened to by mail ingress.')
 param mailSmtpPort int = 2525
 
-@description('Externally exposed SMTP TCP port. Use 25 only after provider/network proof.')
-param mailExposedSmtpPort int = 2525
+@description('Externally exposed SMTP TCP port. Production MX uses 25; use nonstandard ports only for diagnostics.')
+param mailExposedSmtpPort int = 25
 
 @description('Minimum mail ingress replicas. Keep at least one for SMTP responsiveness.')
 @minValue(1)

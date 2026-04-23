@@ -63,11 +63,13 @@ GitHub repository variables:
 - `AZURE_RESOURCE_GROUP`
 - `AZURE_LOCATION`
 - `AZURE_ENVIRONMENT_NAME`
-- Optional: `AZURE_MAIL_EXPOSED_SMTP_PORT`
+- Required for production MX: `AZURE_MAIL_EXPOSED_SMTP_PORT=25`
 - Optional: `AZURE_MAIL_INGRESS_MAX_RECIPIENTS`
 - Optional: `AZURE_MAIL_INGRESS_MAX_CONNECTIONS`
 - Optional: `AZURE_MAIL_INGRESS_CONNECTION_RATE_LIMIT_MAX`
 - Optional: `AZURE_MAIL_INGRESS_CONNECTION_RATE_LIMIT_WINDOW_MS`
+
+Nonstandard exposed SMTP ports are diagnostic-only and must not back an MX record.
 
 Bootstrap or repair Azure OIDC, repo variables, and resource-group role assignments with:
 
