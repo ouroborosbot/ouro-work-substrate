@@ -122,9 +122,21 @@ function validateOptionalText(value: unknown, fallback?: string): string | undef
   return value
 }
 
+function validateOptionalBoolean(value: unknown): boolean | undefined {
+  if (value === undefined || value === null) return undefined
+  if (typeof value !== "boolean") throw new Error("rotation target flags must be booleans")
+  return value
+}
+
+function validateOptionalReason(value: unknown): string | undefined {
+  if (value === undefined || value === null || value === "") return undefined
+  if (typeof value !== "string" || value.length > 256) throw new Error("reason must be a short string")
+  return value
+}
+
 function errorStatus(error: unknown, reason: string): number {
   if (error instanceof PayloadTooLargeError) return error.statusCode
-  if (reason.includes("must") || reason.includes("valid") || reason.includes("Unexpected") || reason.includes("JSON")) return 400
+  if (reason.includes("must") || reason.includes("required") || reason.includes("valid") || reason.includes("Unexpected") || reason.includes("JSON")) return 400
   return 500
 }
 
@@ -191,7 +203,9 @@ export function createMailControlServer(options: MailControlOptions): http.Serve
         await handleOutboundEvents(request, response, options)
         return
       }
-      if (request.method !== "POST" || request.url !== "/v1/mailboxes/ensure") {
+      const isEnsure = request.method === "POST" && request.url === "/v1/mailboxes/ensure"
+      const isRotateKeys = request.method === "POST" && request.url === "/v1/mailboxes/rotate-keys"
+      if (!isEnsure && !isRotateKeys) {
         json(response, 404, { ok: false, error: "not found" })
         return
       }
@@ -210,8 +224,60 @@ export function createMailControlServer(options: MailControlOptions): http.Serve
       const ownerEmail = validateOptionalEmail(body.ownerEmail)
       const source = validateOptionalText(body.source, ownerEmail ? "hey" : undefined)
       const sourceTag = validateOptionalText(body.sourceTag)
+      const agentId = validateAgentId(body.agentId)
+      if (isRotateKeys) {
+        const rotateMailbox = validateOptionalBoolean(body.rotateMailbox) ?? false
+        const rotateSourceGrant = validateOptionalBoolean(body.rotateSourceGrant) ?? false
+        const reason = validateOptionalReason(body.reason)
+        const result = await options.store.rotateMailboxKeys({
+          agentId,
+          ...(ownerEmail ? { ownerEmail } : {}),
+          ...(source ? { source } : {}),
+          ...(sourceTag ? { sourceTag } : {}),
+          rotateMailbox,
+          rotateSourceGrant,
+        })
+        const mailbox = result.registry.mailboxes.find((entry) =>
+          normalizeMailAddress(entry.canonicalAddress) === normalizeMailAddress(result.mailboxAddress))
+        const sourceGrant = result.sourceAlias
+          ? result.registry.sourceGrants.find((entry) => normalizeMailAddress(entry.aliasAddress) === normalizeMailAddress(result.sourceAlias!))
+          : undefined
+        const publicRegistry = publicRegistryResponse(options, result.revision)
+        logEvent({
+          component: "mail-control",
+          event: "mailbox_keys_rotated",
+          message: "mailbox registry keys rotated",
+          meta: {
+            agentId,
+            rotateMailbox,
+            rotateSourceGrant,
+            rotatedMailbox: result.rotatedMailbox,
+            rotatedSourceGrant: result.rotatedSourceGrant,
+            addedMailbox: result.addedMailbox,
+            addedSourceGrant: result.addedSourceGrant,
+            generatedPrivateKeys: Object.keys(result.generatedPrivateKeys).length,
+            ...(reason ? { reason } : {}),
+          },
+        })
+        json(response, 200, {
+          ok: true,
+          mailboxAddress: result.mailboxAddress,
+          sourceAlias: result.sourceAlias,
+          addedMailbox: result.addedMailbox,
+          addedSourceGrant: result.addedSourceGrant,
+          rotatedMailbox: result.rotatedMailbox,
+          rotatedSourceGrant: result.rotatedSourceGrant,
+          generatedPrivateKeys: result.generatedPrivateKeys,
+          revision: result.revision,
+          mailbox,
+          ...(sourceGrant ? { sourceGrant } : {}),
+          ...(publicRegistry ? { publicRegistry } : {}),
+          ...(options.blobStore ? { blobStore: options.blobStore } : {}),
+        })
+        return
+      }
       const result = await options.store.ensureMailbox({
-        agentId: validateAgentId(body.agentId),
+        agentId,
         ...(ownerEmail ? { ownerEmail } : {}),
         ...(source ? { source } : {}),
         ...(sourceTag ? { sourceTag } : {}),

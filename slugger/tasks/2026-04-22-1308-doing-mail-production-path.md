@@ -221,7 +221,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Runbooks, contract tests, and recovery tooling.
 **Acceptance**: A future agent can recover each documented failure mode without rediscovering the system.
 
-### ⬜ Unit 10: Deploy, Cutover, And Live Smoke
+### 🔄 Unit 10: Deploy, Cutover, And Live Smoke
 **What**: Deploy after green CI, run DNS dry-run and apply after proof, verify MX/STARTTLS, run native inbound/outbound/autonomy tests, run HEY backfill/forwarding tests, inspect Outlook/audit, and merge/release/install as repo workflows require.
 **Output**: Deployment logs, DNS backup/diff, live smoke artifacts, PR/CI/merge/release evidence, and final installed-state verification.
 **Acceptance**: Full production completion criteria are met; remaining issues are either fixed or documented as explicit follow-up work with owner/removal criteria.
@@ -281,3 +281,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-23 02:20 Unit 8b complete: implemented the Outlook reader/tool/UI audit surface, greened the Unit 8a suites, and passed root plus Outlook UI builds. Evidence lives in `unit8b-implementation.md`.
 - 2026-04-23 03:03 Unit 8c complete: restored full 100% harness coverage, fixed the Outlook StrictMode deep-link reset found by screenshot proof, and captured desktop/mobile audit screenshots. Evidence lives in `unit8c-coverage-refactor.md`.
 - 2026-04-23 03:22 Unit 9 complete: added substrate and harness recovery runbooks, contract tests, harness doctor mail config checks for hosted Blob/key/mailbox drift and autonomy kill switch state, and green substrate plus harness 100% coverage gates. Evidence lives in `unit9-recovery-operations-docs.md`.
+- 2026-04-23 04:36 Unit 10 live setup exposed a hosted registry/vault key drift repair gap: Mail Control correctly refused to re-return one-time private keys, while Slugger's vault lacked the referenced hosted private mail key ids. Substrate and harness key-rotation repair branches are implemented and verified locally; evidence lives in `unit10-hosted-key-rotation-repair.md`.

@@ -376,6 +376,160 @@ describe("mail control server", () => {
     }
   })
 
+  it("rotates hosted mailbox keys explicitly when one-time private keys were lost", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-rotate-keys-"))
+    const server = createMailControlServer({
+      store: new FileMailRegistryStore(path.join(dir, "registry.json"), "ouro.bot"),
+      adminToken: "secret",
+      allowedEmailDomain: "ouro.bot",
+      publicRegistry: {
+        kind: "azure-blob",
+        azureAccountUrl: "https://stourotest.blob.core.windows.net",
+        container: "mailroom",
+        blob: "registry/mailroom.json",
+        domain: "ouro.bot",
+      },
+      blobStore: {
+        kind: "azure-blob",
+        azureAccountUrl: "https://stourotest.blob.core.windows.net",
+        container: "mailroom",
+      },
+    } as Parameters<typeof createMailControlServer>[0] & {
+      publicRegistry: Record<string, string>
+      blobStore: Record<string, string>
+    })
+    const port = await listen(server)
+    try {
+      const first = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ agentId: "slugger", ownerEmail: "ari@mendelow.me", source: "hey" }),
+      })
+      const firstBody = await first.json() as Record<string, unknown>
+      const oldMailbox = firstBody.mailbox as Record<string, unknown>
+      const oldSource = firstBody.sourceGrant as Record<string, unknown>
+
+      const rotated = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/rotate-keys`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          agentId: "slugger",
+          ownerEmail: "ari@mendelow.me",
+          source: "hey",
+          rotateMailbox: true,
+          rotateSourceGrant: true,
+          reason: "lost one-time keys during hosted setup proof",
+        }),
+      })
+      const body = await rotated.json() as Record<string, unknown>
+      expect(rotated.status).toBe(200)
+      expect(body.rotatedMailbox).toBe(true)
+      expect(body.rotatedSourceGrant).toBe(true)
+      const mailbox = body.mailbox as Record<string, unknown>
+      const sourceGrant = body.sourceGrant as Record<string, unknown>
+      expect(mailbox.keyId).not.toBe(oldMailbox.keyId)
+      expect(sourceGrant.keyId).not.toBe(oldSource.keyId)
+      expect(body.mailboxAddress).toBe("slugger@ouro.bot")
+      expect(body.sourceAlias).toBe("me.mendelow.ari.slugger@ouro.bot")
+      expect(body.publicRegistry).toEqual(expect.objectContaining({ revision: expect.any(String) }))
+      const generatedPrivateKeys = body.generatedPrivateKeys as Record<string, string>
+      expect(generatedPrivateKeys[mailbox.keyId as string]).toContain("BEGIN PRIVATE KEY")
+      expect(generatedPrivateKeys[sourceGrant.keyId as string]).toContain("BEGIN PRIVATE KEY")
+      expect(JSON.stringify(mailbox)).not.toContain("PRIVATE KEY")
+      expect(JSON.stringify(sourceGrant)).not.toContain("PRIVATE KEY")
+
+      const noTarget = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/rotate-keys`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ agentId: "slugger" }),
+      })
+      expect(noTarget.status).toBe(400)
+
+      const badBoolean = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/rotate-keys`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ agentId: "slugger", rotateMailbox: "yes" }),
+      })
+      expect(badBoolean.status).toBe(400)
+
+      const badReason = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/rotate-keys`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ agentId: "slugger", rotateMailbox: true, reason: "x".repeat(257) }),
+      })
+      expect(badReason.status).toBe(400)
+    } finally {
+      server.close()
+    }
+  })
+
+  it("rotates by creating missing native/source records without requiring hosted coordinate output", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-rotate-create-"))
+    const server = createMailControlServer({
+      store: new FileMailRegistryStore(path.join(dir, "registry.json"), "ouro.bot"),
+      adminToken: "secret",
+      allowedEmailDomain: "ouro.bot",
+    })
+    const port = await listen(server)
+    try {
+      const native = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/rotate-keys`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ agentId: "clio", rotateMailbox: true }),
+      })
+      const nativeBody = await native.json() as Record<string, unknown>
+      expect(native.status).toBe(200)
+      expect(nativeBody.addedMailbox).toBe(true)
+      expect(nativeBody.rotatedMailbox).toBe(false)
+      expect(nativeBody.sourceAlias).toBeNull()
+      expect(nativeBody).not.toHaveProperty("sourceGrant")
+      expect(nativeBody).not.toHaveProperty("publicRegistry")
+      expect(nativeBody).not.toHaveProperty("blobStore")
+
+      const source = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/rotate-keys`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          agentId: "clio",
+          ownerEmail: "ari@mendelow.me",
+          source: "calendar",
+          sourceTag: "calendar",
+          rotateSourceGrant: true,
+        }),
+      })
+      const sourceBody = await source.json() as Record<string, unknown>
+      expect(source.status).toBe(200)
+      expect(sourceBody.addedMailbox).toBe(false)
+      expect(sourceBody.addedSourceGrant).toBe(true)
+      expect(sourceBody.rotatedSourceGrant).toBe(false)
+      expect(sourceBody.sourceAlias).toBe("me.mendelow.ari.calendar.clio@ouro.bot")
+      expect(sourceBody.sourceGrant).toEqual(expect.objectContaining({ source: "calendar" }))
+    } finally {
+      server.close()
+    }
+  })
+
   it("allows explicit unauthenticated local setup", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-local-"))
     const server = createMailControlServer({
@@ -476,6 +630,9 @@ describe("mail control server", () => {
           return { registry: { schemaVersion: 1, domain: "ouro.bot", mailboxes: [], sourceGrants: [] }, revision: "0:0:72" }
         },
         async ensureMailbox() {
+          throw "store offline"
+        },
+        async rotateMailboxKeys() {
           throw "store offline"
         },
       },

@@ -365,6 +365,11 @@ export interface MailroomPublicEnsureResult extends MailroomEnsureResult {
   generatedPrivateKeys: Record<string, string>
 }
 
+export interface MailroomPublicRotateResult extends MailroomPublicEnsureResult {
+  rotatedMailbox: boolean
+  rotatedSourceGrant: boolean
+}
+
 export interface BuildNativeMailAutonomyPolicyInput {
   agentId: string
   mailboxAddress: string
@@ -1046,6 +1051,68 @@ export function ensurePublicMailboxRegistry(input: {
   return {
     ...ensured,
     generatedPrivateKeys: ensured.keys,
+  }
+}
+
+export function rotatePublicMailboxRegistryKeys(input: {
+  agentId: string
+  domain?: string
+  registry?: MailroomRegistry
+  ownerEmail?: string
+  source?: string
+  sourceTag?: string
+  rotateMailbox?: boolean
+  rotateSourceGrant?: boolean
+}): MailroomPublicRotateResult {
+  const rotateMailbox = input.rotateMailbox === true
+  const rotateSourceGrant = input.rotateSourceGrant === true
+  if (!rotateMailbox && !rotateSourceGrant) {
+    throw new Error("at least one key rotation target is required")
+  }
+  if (rotateSourceGrant && !input.ownerEmail) {
+    throw new Error("ownerEmail is required when rotating a source grant key")
+  }
+
+  const ensured = ensurePublicMailboxRegistry(input)
+  const domain = ensured.registry.domain
+  const agentId = safeAddressPart(input.agentId) || "agent"
+  const registry = cloneMailroomRegistry(ensured.registry, domain)
+  const generatedPrivateKeys = { ...ensured.generatedPrivateKeys }
+  let rotatedMailbox = false
+  let rotatedSourceGrant = false
+
+  if (rotateMailbox && !ensured.addedMailbox) {
+    const mailbox = registry.mailboxes.find((entry) => entry.agentId === agentId)!
+    const nextKey = generateMailKeyPair(`${agentId}-native`)
+    mailbox.keyId = nextKey.keyId
+    mailbox.publicKeyPem = nextKey.publicKeyPem
+    generatedPrivateKeys[nextKey.keyId] = nextKey.privateKeyPem
+    rotatedMailbox = true
+  }
+
+  if (rotateSourceGrant) {
+    const ownerEmail = normalizeMailAddress(input.ownerEmail!)
+    const source = (input.source?.trim() || "hey").toLowerCase()
+    if (!ensured.addedSourceGrant) {
+      const sourceGrant = registry.sourceGrants.find((grant) =>
+        grant.agentId === agentId &&
+        normalizeMailAddress(grant.ownerEmail) === ownerEmail &&
+        grant.source.toLowerCase() === source)!
+      const nextKey = generateMailKeyPair(`${agentId}-${source}`)
+      sourceGrant.keyId = nextKey.keyId
+      sourceGrant.publicKeyPem = nextKey.publicKeyPem
+      generatedPrivateKeys[nextKey.keyId] = nextKey.privateKeyPem
+      rotatedSourceGrant = true
+    }
+  }
+
+  return {
+    ...ensured,
+    registry,
+    keys: generatedPrivateKeys,
+    generatedPrivateKeys,
+    rotatedMailbox,
+    rotatedSourceGrant,
   }
 }
 

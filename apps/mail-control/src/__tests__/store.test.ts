@@ -30,5 +30,35 @@ describe("mail registry store", () => {
     expect(read.registry.mailboxes).toHaveLength(1)
     expect(read.registry.sourceGrants).toHaveLength(1)
   })
-})
 
+  it("rotates selected public keys and returns only the newly generated private keys", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-store-rotate-"))
+    const store = new FileMailRegistryStore(path.join(dir, "registry.json"), "ouro.bot")
+
+    const first = await store.ensureMailbox({
+      agentId: "slugger",
+      ownerEmail: "ari@mendelow.me",
+      source: "hey",
+    })
+    const oldMailboxKey = first.registry.mailboxes[0]!.keyId
+    const oldSourceKey = first.registry.sourceGrants[0]!.keyId
+    const rotated = await store.rotateMailboxKeys({
+      agentId: "slugger",
+      ownerEmail: "ari@mendelow.me",
+      source: "hey",
+      rotateMailbox: true,
+      rotateSourceGrant: true,
+    })
+
+    const newMailbox = rotated.registry.mailboxes[0]!
+    const newSource = rotated.registry.sourceGrants[0]!
+    expect(rotated.rotatedMailbox).toBe(true)
+    expect(rotated.rotatedSourceGrant).toBe(true)
+    expect(newMailbox.keyId).not.toBe(oldMailboxKey)
+    expect(newSource.keyId).not.toBe(oldSourceKey)
+    expect(rotated.generatedPrivateKeys[newMailbox.keyId]).toContain("BEGIN PRIVATE KEY")
+    expect(rotated.generatedPrivateKeys[newSource.keyId]).toContain("BEGIN PRIVATE KEY")
+    expect(rotated.generatedPrivateKeys[oldMailboxKey]).toBeUndefined()
+    expect(rotated.generatedPrivateKeys[oldSourceKey]).toBeUndefined()
+  })
+})

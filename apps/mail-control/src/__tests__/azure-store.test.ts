@@ -81,6 +81,32 @@ describe("AzureBlobMailRegistryStore", () => {
     expect(serviceClient.container.createCalls).toBeGreaterThanOrEqual(3)
   })
 
+  it("rotates mailbox keys through the same optimistic blob write path", async () => {
+    const serviceClient = new FakeBlobServiceClient()
+    const store = new AzureBlobMailRegistryStore(serviceClient as never, "mailroom", "registry/mailroom.json", "ouro.bot")
+
+    const first = await store.ensureMailbox({ agentId: "slugger", ownerEmail: "ari@mendelow.me", source: "hey" })
+    const oldMailboxKey = first.registry.mailboxes[0]!.keyId
+    const oldSourceKey = first.registry.sourceGrants[0]!.keyId
+    const rotated = await store.rotateMailboxKeys({
+      agentId: "slugger",
+      ownerEmail: "ari@mendelow.me",
+      source: "hey",
+      rotateMailbox: true,
+      rotateSourceGrant: true,
+    })
+
+    expect(rotated.rotatedMailbox).toBe(true)
+    expect(rotated.rotatedSourceGrant).toBe(true)
+    expect(rotated.registry.mailboxes[0]!.keyId).not.toBe(oldMailboxKey)
+    expect(rotated.registry.sourceGrants[0]!.keyId).not.toBe(oldSourceKey)
+    expect(Object.keys(rotated.generatedPrivateKeys)).toEqual(expect.arrayContaining([
+      rotated.registry.mailboxes[0]!.keyId,
+      rotated.registry.sourceGrants[0]!.keyId,
+    ]))
+    expect(serviceClient.container.getBlockBlobClient("registry/mailroom.json").uploads[1]).toEqual({ conditions: { ifMatch: "etag-1" } })
+  })
+
   it("retries transient registry write conflicts and then gives up", async () => {
     const serviceClient = new FakeBlobServiceClient()
     const store = new AzureBlobMailRegistryStore(serviceClient as never, "mailroom", "registry/mailroom.json", "ouro.bot")

@@ -1,7 +1,7 @@
 import * as fs from "node:fs"
 import * as path from "node:path"
 import { BlobServiceClient, type BlockBlobClient } from "@azure/storage-blob"
-import { ensurePublicMailboxRegistry, type MailroomPublicEnsureResult, type MailroomRegistry } from "@ouro/work-protocol"
+import { ensurePublicMailboxRegistry, rotatePublicMailboxRegistryKeys, type MailroomPublicEnsureResult, type MailroomPublicRotateResult, type MailroomRegistry } from "@ouro/work-protocol"
 
 export interface EnsureMailboxInput {
   agentId: string
@@ -10,8 +10,14 @@ export interface EnsureMailboxInput {
   sourceTag?: string
 }
 
+export interface RotateMailboxKeysInput extends EnsureMailboxInput {
+  rotateMailbox?: boolean
+  rotateSourceGrant?: boolean
+}
+
 export interface MailRegistryStore {
   ensureMailbox(input: EnsureMailboxInput): Promise<MailroomPublicEnsureResult & { revision: string }>
+  rotateMailboxKeys(input: RotateMailboxKeysInput): Promise<MailroomPublicRotateResult & { revision: string }>
   read(): Promise<{ registry: MailroomRegistry; revision: string }>
 }
 
@@ -50,6 +56,14 @@ export class FileMailRegistryStore implements MailRegistryStore {
     fs.writeFileSync(this.filePath, `${JSON.stringify(ensured.registry, null, 2)}\n`, "utf-8")
     return { ...ensured, revision: registryRevision(ensured.registry) }
   }
+
+  async rotateMailboxKeys(input: RotateMailboxKeysInput): Promise<MailroomPublicRotateResult & { revision: string }> {
+    const { registry } = await this.read()
+    const rotated = rotatePublicMailboxRegistryKeys({ ...input, domain: this.domain, registry })
+    fs.mkdirSync(path.dirname(this.filePath), { recursive: true })
+    fs.writeFileSync(this.filePath, `${JSON.stringify(rotated.registry, null, 2)}\n`, "utf-8")
+    return { ...rotated, revision: registryRevision(rotated.registry) }
+  }
 }
 
 async function downloadRegistry(blob: BlockBlobClient, domain: string): Promise<{ registry: MailroomRegistry; etag?: string }> {
@@ -85,26 +99,40 @@ export class AzureBlobMailRegistryStore implements MailRegistryStore {
     return { registry, revision: registryRevision(registry) }
   }
 
-  async ensureMailbox(input: EnsureMailboxInput): Promise<MailroomPublicEnsureResult & { revision: string }> {
+  private async updateRegistry<T extends MailroomPublicEnsureResult | MailroomPublicRotateResult>(
+    update: (registry: MailroomRegistry) => T,
+  ): Promise<T & { revision: string }> {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const blob = await this.blob()
       const existing = await downloadRegistry(blob, this.domain)
-      const ensured = ensurePublicMailboxRegistry({
-        ...input,
-        domain: this.domain,
-        registry: existing.registry,
-      })
-      const payload = Buffer.from(`${JSON.stringify(ensured.registry, null, 2)}\n`, "utf-8")
+      const updated = update(existing.registry)
+      const payload = Buffer.from(`${JSON.stringify(updated.registry, null, 2)}\n`, "utf-8")
       try {
         await blob.uploadData(payload, {
           conditions: existing.etag ? { ifMatch: existing.etag } : { ifNoneMatch: "*" },
         })
-        return { ...ensured, revision: registryRevision(ensured.registry) }
+        return { ...updated, revision: registryRevision(updated.registry) }
       } catch (error) {
         if (attempt === 2) throw error
       }
     }
     /* v8 ignore next -- the loop either returns after upload or rethrows the final upload error. */
     throw new Error("mail registry update failed after retries")
+  }
+
+  async ensureMailbox(input: EnsureMailboxInput): Promise<MailroomPublicEnsureResult & { revision: string }> {
+    return this.updateRegistry((registry) => ensurePublicMailboxRegistry({
+      ...input,
+      domain: this.domain,
+      registry,
+    }))
+  }
+
+  async rotateMailboxKeys(input: RotateMailboxKeysInput): Promise<MailroomPublicRotateResult & { revision: string }> {
+    return this.updateRegistry((registry) => rotatePublicMailboxRegistryKeys({
+      ...input,
+      domain: this.domain,
+      registry,
+    }))
   }
 }
