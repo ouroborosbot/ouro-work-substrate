@@ -34,7 +34,7 @@ Bring Agent Mail to full production shape across Ouro Work Substrate and the Our
 - [ ] Policy-governed autonomous native-agent sending is implemented with default confirmation for risky/new sends, explicit allow policy for autonomous low-risk sends, rate/recipient limits, audit, and kill switch.
 - [ ] Delegated human mail never grants send-as-human authority by default; follow-ups based on Ari's HEY mail send from the agent identity unless a future delegated-send product is approved.
 - [ ] SPF, DKIM/DKIM2 where required, and DMARC records are applied and verified for the chosen sender domain.
-- [ ] Recovery docs/tooling cover DNS, port 25, Mail Control, vault/key drift, HEY forwarding, Blob access, decryption, wrong placement/provenance, outbound provider failures, and delivery events.
+- [x] Recovery docs/tooling cover DNS, port 25, Mail Control, vault/key drift, HEY forwarding, Blob access, decryption, wrong placement/provenance, outbound provider failures, and delivery events.
 - [x] Hosted substrate packaging/deployment is documented and verified as private commit-addressed Docker images plus Bicep/GitHub Actions deploy, not an npm package for deployable services.
 - [x] Branch protections for `ouro-work-substrate` and `ouroboros` require the intended green checks, enforce admins, require linear history, and require conversation resolution.
 - [ ] Live smoke proves hosted health, mailbox/source ensure, SMTP accept/reject, encryption/decryption, native Screener/Imbox, delegated HEY backfill and forward, autonomous native send policy, provider event reconciliation, and Ouro Outlook audit.
@@ -216,7 +216,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Screenshot artifacts and green UI/API tests.
 **Acceptance**: No overlapping/blank UI states and 100% coverage on new reader/tool code.
 
-### ⬜ Unit 9: Recovery, Operations, And Docs
+### ✅ Unit 9: Recovery, Operations, And Docs
 **What**: Update operations/account lifecycle/harness setup docs and implement any doctor/status checks needed for DNS, MX, HEY source, hosted registry/vault key drift, Blob access, delivery events, and autonomy kill switch.
 **Output**: Runbooks, contract tests, and recovery tooling.
 **Acceptance**: A future agent can recover each documented failure mode without rediscovering the system.
@@ -280,3 +280,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-23 02:16 Unit 8a complete: added and pushed red harness API/tool/UI tests for owner-scoped source folders, native/delegated audit labels, autonomous send authority/policy output, provider delivery events, and body-safe outbound summaries. Evidence lives in `unit8a-red-tests.md`.
 - 2026-04-23 02:20 Unit 8b complete: implemented the Outlook reader/tool/UI audit surface, greened the Unit 8a suites, and passed root plus Outlook UI builds. Evidence lives in `unit8b-implementation.md`.
 - 2026-04-23 03:03 Unit 8c complete: restored full 100% harness coverage, fixed the Outlook StrictMode deep-link reset found by screenshot proof, and captured desktop/mobile audit screenshots. Evidence lives in `unit8c-coverage-refactor.md`.
+- 2026-04-23 03:22 Unit 9 complete: added substrate and harness recovery runbooks, contract tests, harness doctor mail config checks for hosted Blob/key/mailbox drift and autonomy kill switch state, and green substrate plus harness 100% coverage gates. Evidence lives in `unit9-recovery-operations-docs.md`.

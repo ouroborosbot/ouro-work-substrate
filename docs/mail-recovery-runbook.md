@@ -1,0 +1,74 @@
+# Mail Recovery Runbook
+
+Use this when Agent Mail behaves strangely in production or during live smoke. The goal is to restore confidence without crossing the trust boundary: hosted services route and store encrypted mail, while the harness and the owning agent vault keep private keys, reads, policy, and sense context.
+
+Start by deciding which mailbox lane is affected:
+
+- Native agent mailbox, for example `slugger@ouro.bot`.
+- Delegated human mailbox source, for example `me.mendelow.ari.slugger@ouro.bot` for Ari's HEY source.
+
+If those lanes are confused, stop and fix provenance before doing more delivery work.
+
+## First Checks
+
+1. Check CI and deploy state:
+
+   ```bash
+   gh run list --repo ouroborosbot/ouro-work-substrate --limit 8
+   gh pr list --repo ouroborosbot/ouro-work-substrate
+   ```
+
+2. Check hosted health:
+
+   ```bash
+   curl -fsS https://<mail-control-fqdn>/health
+   curl -fsS https://<mail-ingress-fqdn>/health
+   curl -fsS https://<vault-control-fqdn>/health
+   ```
+
+   Health endpoints should agree on mailbox and source-grant counts. Treat mismatch as a registry/read-path failure until proven otherwise.
+
+3. Use the current production DNS workflow binding for any DNS repair:
+
+   ```bash
+   infra/dns/ouro.bot.binding.json
+   ```
+
+   The binding is run config. The referenced vault item is an ordinary vault item. Do not parse vault item notes. Notes orient humans and agents; machine-readable facts belong in the binding.
+
+4. Keep evidence body-safe. Artifacts may include timestamps, record names, provider ids, event ids, addresses, status codes, and safe summaries. They must never paste provider keys, TLS private keys, raw MIME, message bodies, private mail keys, or vault unlock material.
+
+## Recovery Map
+
+| Failure mode | Agent-runnable | Human-required | Body-safe evidence |
+| --- | --- | --- | --- |
+| DNS/MX drift | Run DNS `backup`, `plan`, `verify`, and, after review, `apply` or `rollback` from `infra/dns/ouro.bot.binding.json`. Preserve records outside the allowlist. | Registrar/API access must already be available in the agent vault; human approval is required for intentional cutover or provider-auth record changes. | DNS backup JSON, plan diff, provider record ids, public DNS answers. |
+| port 25 or STARTTLS failure | Check `GET /health`, Container Apps revision, deploy outputs, TCP reachability, `EHLO`, `STARTTLS`, and `SIZE`. Rerun `Deploy Azure` if config drift is likely. | If a network blocks outbound port 25, use an external checker or real mailbox-provider send; do not ask the human to debug a local ISP block as an app failure. | SMTP transcript without message body, STARTTLS advertisement, health output, revision id. |
+| hosted registry/vault key drift | Call `POST /v1/mailboxes/ensure` through Mail Control. Rerun `ouro account ensure` or `ouro connect mail` from the harness so returned one-time keys are stored in the owning agent vault. | If the one-time private key was lost and not already in the vault, key rotation or a fresh Mail Control response is required. | Key ids, mailbox/source records, ensure counts, no private key material. |
+| Blob reader or decryption failure | Verify hosted Blob coordinates in the harness `runtime/config` item, managed identity/Blob role assignment, and that the matching key id exists in the agent vault. | Human may need to unlock or repair the agent vault if vault access is blocked. | Blob account/container/blob names, key ids, sanitized `AUTH_REQUIRED:mailroom` or decryption error. |
+| wrong mailbox provenance | Inspect registry/source grants, accepted message metadata, Ouro Outlook, `mail_recent`, and `mail_access_log`. Repair classification or source state before importing/forwarding more mail. | Human confirms the intended owner/source when the source grant is ambiguous. | Message id, recipient, mailbox role, compartment kind, owner email, source label. |
+| HEY export/backfill stale | Ask Slugger to guide browser export, then run `ouro mail import-mbox` with owner/source flags. Compare import counts and `sourceFreshThrough`. | HEY browser login, MFA, CAPTCHA, export request, and download are human-at-keyboard gates. | MBOX filename/path, import counts, newest message date, owner/source labels. |
+| HEY forwarding missing or lossy | Verify source state, target alias, recent forwarded probes, `mail_recent`, `mail_screener`, and Outlook source folders. Wrong-target probes to `slugger@ouro.bot` are recoverable setup friction, not delegated mail. | Human confirms HEY forwarding/extension settings and final forwarding confirmation. HEY can miss spam-classified or authentication-broken forwarded mail. | Forwarding status, target alias, probe message id, observed recipient, safe delivery summary. |
+| delivery event missing | Check Mail Control Event Grid endpoint health, ACS webhook subscription, provider message id, and idempotent reconciliation. A `submitted` outbound record is provider API acceptance, not delivery. | Human/provider console access may be needed for ACS domain verification, webhook subscription repair, or provider-side suppression investigation. | Provider message/operation id, Event Grid event id, canonical outcome, body-safe provider status. |
+| autonomy kill switch | Inspect `mailroom.autonomousSendPolicy` in the owning agent vault runtime config. If `killSwitch` is true or policy is disabled, autonomous sends must fall back to `CONFIRM_SEND`. | Human explicitly approves final autonomous-send enablement and any change to allowed recipients/domains, limits, or kill switch. | Policy id, decision code, fallback, recipient count, rate-window counters. |
+| discarded/quarantined recovery | Use Ouro Outlook recovery drawers plus `mail_screener`, `mail_decide restore`, and `mail_access_log` to restore or explain retained messages. | Family-authorized human decides sender/source policy changes for suspicious or unknown mail. | Message id, previous/next placement, actor, reason, retained drawer counts. |
+
+## Production Surfaces
+
+- GitHub Actions: `gh run list --repo ouroborosbot/ouro-work-substrate`.
+- Manual hosted deploy: `gh workflow run deploy-azure.yml --repo ouroborosbot/ouro-work-substrate`.
+- Container Apps rollback: `az containerapp revision list` and `az containerapp ingress traffic set`.
+- Hosted control: `GET /health`, `POST /v1/mailboxes/ensure`, ACS Event Grid delivery endpoint.
+- Harness repair: `ouro account ensure`, `ouro connect mail`, `ouro mail import-mbox`.
+- Harness audit/read tools: `mail_recent`, `mail_screener`, `mail_access_log`, `mail_thread`, and Ouro Outlook.
+- Outbound provider: Azure Communication Services with Event Grid reconciliation.
+- Native autonomous-send policy: `mailroom.autonomousSendPolicy`.
+
+## Rollback Order
+
+1. Stop or disable the unsafe surface first. For outbound, use the autonomy kill switch. For bad deployment, shift Container Apps traffic to the known-good revision. For DNS, rollback only allowlisted records from a recorded backup.
+2. Preserve evidence before changing state again.
+3. Re-run focused smoke for the affected lane.
+4. Update this runbook if the recovery path was not obvious.
+
+Do not solve recovery by copying private keys into hosted services or logs. If the system cannot explain the recovery without leaking private material, the recovery path is not production-ready yet.

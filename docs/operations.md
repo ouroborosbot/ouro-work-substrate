@@ -146,6 +146,10 @@ For Slugger, the expected public addresses are:
 - Native: `slugger@ouro.bot`.
 - HEY delegated alias: `me.mendelow.ari.slugger@ouro.bot`.
 
+## Mail Recovery
+
+When live mail, delegated HEY forwarding, Blob access, delivery events, or autonomous-send policy behaves strangely, use [Mail Recovery Runbook](mail-recovery-runbook.md). The repo path is `docs/mail-recovery-runbook.md`. It keeps the failure modes in one place: DNS/MX drift, port 25 or STARTTLS failure, hosted registry/vault key drift, Blob reader/decryption failure, wrong mailbox provenance, HEY backfill/forwarding issues, delivery event gaps, autonomy kill switch, and retained discarded/quarantined recovery.
+
 ## Rollback
 
 Container Apps keeps revisions. If a deploy is bad, move traffic back to a known-good revision:
