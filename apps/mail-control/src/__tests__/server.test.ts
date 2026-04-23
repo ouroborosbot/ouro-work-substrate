@@ -121,6 +121,100 @@ describe("mail control server", () => {
     }
   })
 
+  it("returns public records and hosted Blob reader coordinates for harness setup", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-hosted-coordinates-"))
+    const server = createMailControlServer({
+      store: new FileMailRegistryStore(path.join(dir, "registry.json"), "ouro.bot"),
+      adminToken: "secret",
+      allowedEmailDomain: "ouro.bot",
+      publicRegistry: {
+        kind: "azure-blob",
+        azureAccountUrl: "https://stourotest.blob.core.windows.net",
+        container: "mailroom",
+        blob: "registry/mailroom.json",
+        domain: "ouro.bot",
+      },
+      blobStore: {
+        kind: "azure-blob",
+        azureAccountUrl: "https://stourotest.blob.core.windows.net",
+        container: "mailroom",
+      },
+    } as Parameters<typeof createMailControlServer>[0] & {
+      publicRegistry: Record<string, string>
+      blobStore: Record<string, string>
+    })
+    const port = await listen(server)
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          agentId: "slugger",
+          ownerEmail: "ari@mendelow.me",
+          source: "hey",
+        }),
+      })
+      const body = await response.json() as Record<string, unknown>
+      expect(response.status).toBe(200)
+      expect(body.publicRegistry).toEqual({
+        kind: "azure-blob",
+        azureAccountUrl: "https://stourotest.blob.core.windows.net",
+        container: "mailroom",
+        blob: "registry/mailroom.json",
+        domain: "ouro.bot",
+        revision: expect.any(String),
+      })
+      expect(body.blobStore).toEqual({
+        kind: "azure-blob",
+        azureAccountUrl: "https://stourotest.blob.core.windows.net",
+        container: "mailroom",
+      })
+      const mailbox = body.mailbox as Record<string, unknown>
+      const sourceGrant = body.sourceGrant as Record<string, unknown>
+      expect(mailbox).toEqual(expect.objectContaining({
+        agentId: "slugger",
+        mailboxId: "mailbox_slugger",
+        canonicalAddress: "slugger@ouro.bot",
+        keyId: expect.stringMatching(/^mail_slugger-native_/),
+        defaultPlacement: "screener",
+      }))
+      expect(sourceGrant).toEqual(expect.objectContaining({
+        grantId: expect.stringMatching(/^grant_slugger_hey_/),
+        agentId: "slugger",
+        ownerEmail: "ari@mendelow.me",
+        source: "hey",
+        aliasAddress: "me.mendelow.ari.slugger@ouro.bot",
+        keyId: expect.stringMatching(/^mail_slugger-hey_/),
+        defaultPlacement: "imbox",
+        enabled: true,
+      }))
+      const generatedPrivateKeys = body.generatedPrivateKeys as Record<string, string>
+      expect(generatedPrivateKeys[mailbox.keyId as string]).toContain("BEGIN PRIVATE KEY")
+      expect(generatedPrivateKeys[sourceGrant.keyId as string]).toContain("BEGIN PRIVATE KEY")
+      expect(JSON.stringify(mailbox)).not.toContain("PRIVATE KEY")
+      expect(JSON.stringify(sourceGrant)).not.toContain("PRIVATE KEY")
+
+      const second = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ agentId: "slugger", ownerEmail: "ari@mendelow.me", source: "hey" }),
+      })
+      const secondBody = await second.json() as Record<string, unknown>
+      expect(secondBody.generatedPrivateKeys).toEqual({})
+      expect(secondBody.mailbox).toEqual(expect.objectContaining({ keyId: mailbox.keyId }))
+      expect(secondBody.sourceGrant).toEqual(expect.objectContaining({ keyId: sourceGrant.keyId }))
+      expect(secondBody.publicRegistry).toEqual(expect.objectContaining({ revision: expect.any(String) }))
+    } finally {
+      server.close()
+    }
+  })
+
   it("allows explicit unauthenticated local setup", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-local-"))
     const server = createMailControlServer({
