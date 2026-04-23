@@ -126,7 +126,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Coverage pass and repair-path documentation.
 **Acceptance**: Error paths are tested and recovery copy names agent-runnable versus human-required work.
 
-### ⬜ Unit 3a: DNS And Certificate Automation — Tests
+### ✅ Unit 3a: DNS And Certificate Automation — Tests
 **What**: Write failing tests for DNS workflow binding resolution: domain, driver, explicit vault item path, resource allowlist, no note parsing, Porkbun read-only ping/retrieve as the current `ouro.bot` driver, DNS backup, dry-run diff, apply, verify, rollback, and ACME/certificate material handling without logging secrets.
 **Output**: Red tests and fixture DNS records.
 **Acceptance**: Tests fail until automation can prove safe DNS mutation behavior without treating the referenced vault item as a DNS credential, ops credential, authority, or provider-shaped credential.
@@ -258,3 +258,5 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 19:48 Unit 1c complete: added canonical substrate mail provenance contract JSON, harness vendored contract drift tests, docs for the private-package contract lane, and 100% coverage evidence. Evidence lives in `unit1c-coverage-contract.md`.
 - 2026-04-22 19:53 Unit 2a complete: added red hosted provisioning tests for Mail Control public records/Blob coordinates, harness production setup calling hosted Mail Control, key preservation, and hosted registry/vault drift detection. Evidence lives in `unit2a-red-tests.md`.
 - 2026-04-22 19:59 Unit 2b complete: Mail Control now returns public records and hosted coordinates; harness hosted setup calls Mail Control, stores returned keys, preserves existing keys, records Blob reader coordinates, and detects key-id drift. Evidence lives in `unit2b-implementation.md`.
+- 2026-04-22 20:26 Unit 2c complete: restored hosted Mail Control response coverage, covered hosted repair and failure edges, and reran substrate plus harness coverage gates at 100%. Evidence lives in `unit2c-coverage-repair.md`.
+- 2026-04-22 20:33 Unit 3a complete: added and pushed red substrate/harness tests for DNS workflow bindings, Porkbun read-only driver behavior, no note parsing, backup/dry-run/apply/verify/rollback, allowlists, and certificate secret redaction. Evidence lives in `unit3a-red-tests.md`.
