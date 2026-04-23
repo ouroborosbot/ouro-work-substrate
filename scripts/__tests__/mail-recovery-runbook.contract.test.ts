@@ -43,6 +43,8 @@ describe("mail recovery runbook documentation contract", () => {
       "az containerapp revision list",
       "GET /health",
       "POST /v1/mailboxes/ensure",
+      "POST /v1/mailboxes/rotate-keys",
+      "ouro account ensure --rotate-missing-mail-keys",
       "ouro account ensure",
       "ouro connect mail",
       "ouro mail import-mbox",
@@ -59,5 +61,6 @@ describe("mail recovery runbook documentation contract", () => {
     }
 
     expect(recovery).toContain("never paste provider keys, TLS private keys, raw MIME, message bodies, private mail keys, or vault unlock material")
+    expect(recovery).toContain("rotation cannot recover mail already encrypted to a lost private key")
   })
 })

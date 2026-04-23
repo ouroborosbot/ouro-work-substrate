@@ -16,6 +16,7 @@ import {
   normalizeMailAddress,
   reverseEmailRoute,
   resolveMailAddress,
+  rotatePublicMailboxRegistryKeys,
   safeAddressPart,
   sourceAliasForOwner,
   stableJson,
@@ -165,6 +166,49 @@ describe("work protocol mail", () => {
     expect(second.generatedPrivateKeys).toEqual({})
     expect(second.addedMailbox).toBe(false)
     expect(second.addedSourceGrant).toBe(false)
+  })
+
+  it("rotates hosted public mailbox and source keys when one-time private keys are lost", () => {
+    const first = ensurePublicMailboxRegistry({
+      agentId: "slugger",
+      ownerEmail: "ari@mendelow.me",
+      source: "hey",
+    })
+    const oldMailbox = first.registry.mailboxes[0]!
+    const oldSource = first.registry.sourceGrants[0]!
+
+    const rotated = rotatePublicMailboxRegistryKeys({
+      agentId: "slugger",
+      ownerEmail: "ari@mendelow.me",
+      source: "hey",
+      registry: first.registry,
+      rotateMailbox: true,
+      rotateSourceGrant: true,
+    })
+
+    const newMailbox = rotated.registry.mailboxes[0]!
+    const newSource = rotated.registry.sourceGrants[0]!
+    expect(rotated.rotatedMailbox).toBe(true)
+    expect(rotated.rotatedSourceGrant).toBe(true)
+    expect(rotated.addedMailbox).toBe(false)
+    expect(rotated.addedSourceGrant).toBe(false)
+    expect(newMailbox.keyId).not.toBe(oldMailbox.keyId)
+    expect(newMailbox.publicKeyPem).not.toBe(oldMailbox.publicKeyPem)
+    expect(newSource.keyId).not.toBe(oldSource.keyId)
+    expect(newSource.publicKeyPem).not.toBe(oldSource.publicKeyPem)
+    expect(Object.keys(rotated.generatedPrivateKeys).sort()).toEqual([newMailbox.keyId, newSource.keyId].sort())
+    expect(JSON.stringify(rotated.registry)).not.toContain("BEGIN PRIVATE KEY")
+
+    expect(() => rotatePublicMailboxRegistryKeys({
+      agentId: "slugger",
+      registry: first.registry,
+      rotateSourceGrant: true,
+    })).toThrow("ownerEmail is required")
+
+    expect(() => rotatePublicMailboxRegistryKeys({
+      agentId: "slugger",
+      registry: first.registry,
+    })).toThrow("at least one key rotation target")
   })
 
   it("resolves delegated addresses and rejects disabled or orphaned grants", () => {
