@@ -95,9 +95,15 @@ describe("mail outbound provider and delivery events", () => {
 
     const duplicate = reconcileMailDeliveryEvent({ outbound: delivered, event })
     expect(duplicate.deliveryEvents).toHaveLength(1)
+
+    expect(() => reconcileMailDeliveryEvent({
+      outbound: { ...submitted, providerMessageId: "other-operation" },
+      event,
+    })).toThrow("providerMessageId does not match")
   })
 
   it.each([
+    ["Expanded", "accepted"],
     ["Delivered", "delivered"],
     ["Suppressed", "suppressed"],
     ["Bounced", "bounced"],
@@ -118,5 +124,71 @@ describe("mail outbound provider and delivery events", () => {
         deliveryAttemptTimeStamp: "2026-04-23T01:34:59.000Z",
       },
     })).toEqual(expect.objectContaining({ outcome }))
+  })
+
+  it("covers accepted and failed reconciliation timestamps plus ACS parser validation", () => {
+    const submitted = buildMailProviderSubmission({
+      draft: draft(),
+      provider: "azure-communication-services",
+      providerMessageId: "acs-operation-1",
+      submittedAt: "2026-04-23T01:31:00.000Z",
+    })
+    const accepted = parseAcsEmailDeliveryReportEvent({
+      id: "event-expanded-1",
+      eventType: "Microsoft.Communication.EmailDeliveryReportReceived",
+      data: {
+        messageId: "acs-operation-1",
+        status: "Expanded",
+      },
+    })
+    expect(accepted).toEqual(expect.objectContaining({
+      outcome: "accepted",
+      receivedAt: expect.any(String),
+      bodySafeSummary: expect.stringContaining("unknown recipient"),
+    }))
+    expect(reconcileMailDeliveryEvent({ outbound: submitted, event: accepted }))
+      .toEqual(expect.objectContaining({ status: "accepted", acceptedAt: accepted.occurredAt }))
+
+    const failed = parseAcsEmailDeliveryReportEvent({
+      id: "event-failed-1",
+      eventType: "Microsoft.Communication.EmailDeliveryReportReceived",
+      eventTime: "2026-04-23T01:35:00.000Z",
+      data: {
+        messageId: "acs-operation-1",
+        status: "Failed",
+      },
+    })
+    expect(reconcileMailDeliveryEvent({ outbound: submitted, event: failed }))
+      .toEqual(expect.objectContaining({ status: "failed", failedAt: "2026-04-23T01:35:00.000Z" }))
+    expect(reconcileMailDeliveryEvent({
+      outbound: { ...draft({ status: "submitted" }), providerMessageId: "acs-operation-1" },
+      event: failed,
+    }).deliveryEvents).toEqual([failed])
+
+    expect(() => parseAcsEmailDeliveryReportEvent("not an event")).toThrow("missing id")
+    expect(() => parseAcsEmailDeliveryReportEvent({
+      id: "event-missing-type",
+      data: { messageId: "acs-operation-1", status: "Delivered" },
+    })).toThrow("unsupported ACS event type: unknown")
+    expect(() => parseAcsEmailDeliveryReportEvent({
+      id: "event-unsupported-type",
+      eventType: "Microsoft.Communication.EmailEngagementTrackingReportReceived",
+      data: {},
+    })).toThrow("unsupported ACS event type")
+    expect(() => parseAcsEmailDeliveryReportEvent({
+      id: "event-missing-message",
+      eventType: "Microsoft.Communication.EmailDeliveryReportReceived",
+      data: { status: "Delivered" },
+    })).toThrow("missing messageId")
+    expect(() => parseAcsEmailDeliveryReportEvent({
+      id: "event-unknown-status",
+      eventType: "Microsoft.Communication.EmailDeliveryReportReceived",
+      data: { messageId: "acs-operation-1", status: "Mystery" },
+    })).toThrow("unsupported ACS delivery status")
+    expect(() => parseAcsEmailDeliveryReportEvent({
+      id: "event-missing-status",
+      eventType: "Microsoft.Communication.EmailDeliveryReportReceived",
+      data: { messageId: "acs-operation-1" },
+    })).toThrow("unsupported ACS delivery status: unknown")
   })
 })

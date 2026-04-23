@@ -104,6 +104,103 @@ describe("mail control server", () => {
     }
   })
 
+  it("handles outbound Event Grid setup failures without body or secret leakage", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-outbound-events-errors-"))
+    const outboundEvents = {
+      recordDeliveryEvent: vi.fn(async () => ({ ok: true })),
+    }
+    const server = createMailControlServer({
+      store: new FileMailRegistryStore(path.join(dir, "registry.json"), "ouro.bot"),
+      adminToken: "secret",
+      allowedEmailDomain: "ouro.bot",
+      outboundEvents,
+    } as Parameters<typeof createMailControlServer>[0] & {
+      outboundEvents: typeof outboundEvents
+    })
+    const port = await listen(server)
+    try {
+      const missingCode = await fetch(`http://127.0.0.1:${port}/v1/outbound/events/azure-communication-services`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "aeg-event-type": "SubscriptionValidation",
+        },
+        body: JSON.stringify([{ eventType: "Microsoft.EventGrid.SubscriptionValidationEvent", data: {} }]),
+      })
+      expect(missingCode.status).toBe(400)
+      expect(await missingCode.json()).toEqual(expect.objectContaining({ ok: false }))
+
+      const malformedValidation = await fetch(`http://127.0.0.1:${port}/v1/outbound/events/azure-communication-services`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "aeg-event-type": "SubscriptionValidation",
+        },
+        body: JSON.stringify({ data: { validationCode: "not-in-array" } }),
+      })
+      expect(malformedValidation.status).toBe(400)
+
+      const notArray = await fetch(`http://127.0.0.1:${port}/v1/outbound/events/azure-communication-services`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "aeg-event-type": "Notification",
+        },
+        body: JSON.stringify({ id: "not-array" }),
+      })
+      expect(notArray.status).toBe(400)
+
+      const irrelevant = await fetch(`http://127.0.0.1:${port}/v1/outbound/events/azure-communication-services`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "aeg-event-type": "Notification",
+        },
+        body: JSON.stringify([{
+          id: "event-engagement-1",
+          eventType: "Microsoft.Communication.EmailEngagementTrackingReportReceived",
+          data: { messageId: "acs-operation-1", secret: "do not log this" },
+        }]),
+      })
+      expect(irrelevant.status).toBe(202)
+      expect(await irrelevant.json()).toEqual({ ok: true, accepted: 0 })
+      expect(outboundEvents.recordDeliveryEvent).not.toHaveBeenCalled()
+    } finally {
+      server.close()
+    }
+
+    const noSinkDir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-outbound-events-nosink-"))
+    const noSinkServer = createMailControlServer({
+      store: new FileMailRegistryStore(path.join(noSinkDir, "registry.json"), "ouro.bot"),
+      adminToken: "secret",
+      allowedEmailDomain: "ouro.bot",
+    })
+    const noSinkPort = await listen(noSinkServer)
+    try {
+      const noSink = await fetch(`http://127.0.0.1:${noSinkPort}/v1/outbound/events/azure-communication-services`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "aeg-event-type": "Notification",
+        },
+        body: JSON.stringify([{
+          id: "event-bounced-nosink",
+          eventType: "Microsoft.Communication.EmailDeliveryReportReceived",
+          data: {
+            recipient: "ari@mendelow.me",
+            messageId: "acs-operation-1",
+            status: "Bounced",
+            deliveryStatusDetails: { statusMessage: "secret diagnostic body" },
+          },
+        }]),
+      })
+      expect(noSink.status).toBe(503)
+      expect(JSON.stringify(await noSink.json())).not.toContain("secret diagnostic body")
+    } finally {
+      noSinkServer.close()
+    }
+  })
+
   it("requires bearer auth for mailbox creation", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-server-"))
     const server = createMailControlServer({
