@@ -25,7 +25,7 @@ Bring Agent Mail to full production shape across Ouro Work Substrate and the Our
 - [x] The harness vault surface is corrected before DNS/mail implementation: generic human-facing vault item commands exist, notes are first-class, `ouro connect` remains harness-managed only, and templates/compatibility aliases never create new credential species.
 - [x] The harness vault-item branch is merged, published through the harness npm release lane, and installed locally before DNS/mail workflow code depends on the new surface.
 - [ ] DNS/mail production workflows consume explicit non-secret bindings that reference generic vault item paths; no code or docs treat the referenced item as an ops credential, authority, Porkbun credential, DNS credential, or provider-shaped ontology.
-- [ ] Shared mail protocol semantics are protected by a consumed `@ouro/work-protocol` package boundary or generated/schema contract tests so harness and substrate cannot drift silently.
+- [x] Shared mail protocol semantics are protected by a consumed `@ouro/work-protocol` package boundary or generated/schema contract tests so harness and substrate cannot drift silently.
 - [ ] Production MX points to a proven port-25 edge with STARTTLS, size limits, transient/permanent failures, rate limits, recipient limits, and body-safe observability.
 - [ ] Native live mail to `slugger@ouro.bot` reaches encrypted Blob storage, decrypts through Slugger's vault key, enters the right Imbox/Screener state, and behaves as a body-safe sense.
 - [ ] Ari's delegated HEY source is backfilled from MBOX with provenance/freshness and receives all future forwarded mail at `me.mendelow.ari.slugger@ouro.bot` with owner/source labels everywhere.
@@ -106,7 +106,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Contract/code/docs changes in the appropriate repo PRs.
 **Acceptance**: Red tests pass; no user-facing surface can present Ari's HEY mail as Slugger's own correspondence.
 
-### ⬜ Unit 1c: Two-Lane Mail Contract — Coverage And Refactor
+### ✅ Unit 1c: Two-Lane Mail Contract — Coverage And Refactor
 **What**: Fill branch/error coverage, remove duplicate vocabulary, and verify cross-repo contract drift is caught by tests or generated/shared types.
 **Output**: Coverage artifacts and cleanup commits.
 **Acceptance**: 100% coverage on new/changed contract code and focused tests green in both repos.
@@ -255,3 +255,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 19:13 Unit 0e complete: merged harness PR #587, watched green main publish job, verified npm/latest at `0.1.0-alpha.466`, updated local `ouro` to alpha.466, and verified installed generic vault item status/list plus deprecated Porkbun compatibility alias. Evidence lives in `unit0e-merge-publish-install.md`.
 - 2026-04-22 19:18 Unit 1a complete: added red tests in substrate and harness for shared mailbox provenance, access-log provenance, attention summaries, outbound native-send authority, and owner-scoped Outlook delegated source folders. Evidence lives in `unit1a-red-tests.md`.
 - 2026-04-22 19:37 Unit 1b complete: implemented shared/harness two-lane provenance descriptors, access-log and attention provenance, native outbound authority fields, Outlook owner-scoped source folders, legacy fallbacks, and 100% coverage. Evidence lives in `unit1b-implementation.md`.
+- 2026-04-22 19:48 Unit 1c complete: added canonical substrate mail provenance contract JSON, harness vendored contract drift tests, docs for the private-package contract lane, and 100% coverage evidence. Evidence lives in `unit1c-coverage-contract.md`.
