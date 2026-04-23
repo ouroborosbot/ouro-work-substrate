@@ -226,18 +226,89 @@ jobs:
               mailIngressConnectionRateLimitMax="$AZURE_MAIL_INGRESS_CONNECTION_RATE_LIMIT_MAX" \
               mailIngressConnectionRateLimitWindowMs="$AZURE_MAIL_INGRESS_CONNECTION_RATE_LIMIT_WINDOW_MS" \
               mailIngressTlsKey="$MAIL_INGRESS_TLS_KEY" \
-              mailIngressTlsCert="$MAIL_INGRESS_TLS_CERT"
+              mailIngressTlsCert="$MAIL_INGRESS_TLS_CERT" \
+            --query properties.outputs \
+            -o json > apps-outputs.json
+
+      - name: Ensure outbound delivery event subscription
+        if: steps.deploy_decision.outputs.should_deploy == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          communication_service_name="$(jq -r '.outboundCommunicationServiceName.value' apps-outputs.json)"
+          event_subscription_name="$(jq -r '.outboundDeliveryEventSubscriptionName.value' apps-outputs.json)"
+          communication_resource_id="$(az resource show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$communication_service_name" \
+            --resource-type Microsoft.Communication/communicationServices \
+            --query id \
+            -o tsv)"
+          mail_control_app="ouro-${AZURE_ENVIRONMENT_NAME}-mail-control"
+          mail_control_fqdn="$(az containerapp show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$mail_control_app" \
+            --query properties.configuration.ingress.fqdn \
+            -o tsv)"
+          endpoint="https://${mail_control_fqdn}/v1/outbound/events/azure-communication-services"
+          current_endpoint="$(az eventgrid event-subscription show \
+            --source-resource-id "$communication_resource_id" \
+            --name "$event_subscription_name" \
+            --include-full-endpoint-url \
+            --query destination.endpointUrl \
+            -o tsv 2>/dev/null || true)"
+          current_event_types="$(az eventgrid event-subscription show \
+            --source-resource-id "$communication_resource_id" \
+            --name "$event_subscription_name" \
+            --query "join(',', filter.includedEventTypes)" \
+            -o tsv 2>/dev/null || true)"
+          desired_event_types="Microsoft.Communication.EmailDeliveryReportReceived"
+          if [[ -n "$current_endpoint" ]] && [[ "$current_endpoint" != "$endpoint" || "$current_event_types" != "$desired_event_types" ]]; then
+            az eventgrid event-subscription delete \
+              --source-resource-id "$communication_resource_id" \
+              --name "$event_subscription_name"
+            current_endpoint=""
+          fi
+          if [[ -z "$current_endpoint" ]]; then
+            az eventgrid event-subscription create \
+              --source-resource-id "$communication_resource_id" \
+              --name "$event_subscription_name" \
+              --endpoint "$endpoint" \
+              --endpoint-type webhook \
+              --event-delivery-schema eventgridschema \
+              --included-event-types Microsoft.Communication.EmailDeliveryReportReceived \
+              --max-delivery-attempts 30 \
+              --event-ttl 1440 >/dev/null
+          fi
+          final_state="$(az eventgrid event-subscription show \
+            --source-resource-id "$communication_resource_id" \
+            --name "$event_subscription_name" \
+            --query provisioningState \
+            -o tsv)"
+          final_endpoint="$(az eventgrid event-subscription show \
+            --source-resource-id "$communication_resource_id" \
+            --name "$event_subscription_name" \
+            --include-full-endpoint-url \
+            --query destination.endpointUrl \
+            -o tsv)"
+          if [[ "$final_state" != "Succeeded" ]]; then
+            echo "Event Grid delivery subscription state is $final_state, expected Succeeded." >&2
+            exit 1
+          fi
+          {
+            echo "### Outbound delivery events"
+            echo
+            echo "- Communication service: \`$communication_service_name\`"
+            echo "- Event subscription: \`$event_subscription_name\`"
+            echo "- Endpoint: \`$final_endpoint\`"
+            echo "- State: \`$final_state\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Show deployment outputs
         if: steps.deploy_decision.outputs.should_deploy == 'true'
         shell: bash
         run: |
           set -euo pipefail
-          az deployment group show \
-            --resource-group "$AZURE_RESOURCE_GROUP" \
-            --name "apps-${GITHUB_RUN_ID}" \
-            --query properties.outputs \
-            -o table
+          jq -r 'to_entries[] | [.key, (.value.value | tostring)] | @tsv' apps-outputs.json | column -t -s $'\t'
 
       - name: Report skipped deployment
         if: steps.deploy_decision.outputs.should_deploy != 'true'
