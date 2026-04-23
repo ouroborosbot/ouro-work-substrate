@@ -52,9 +52,10 @@ On each ensure request it:
 2. Adds a native mailbox if the agent does not have one.
 3. Adds a delegated source grant if requested.
 4. Writes the updated registry.
-5. Returns only the newly generated private keys in the response.
+5. Returns the mailbox address, delegated alias, public mailbox/source records, hosted registry/blob coordinates, registry revision, and newly generated private keys.
 
 The caller must write those private keys into the owning agent vault before reporting setup complete. A second identical ensure call should be boring: same mailbox, same alias, no new private keys.
+The public records include key ids so the harness can detect vault drift when Mail Control has no one-time private key left to return.
 
 ## Mail Data Model
 

@@ -93,7 +93,7 @@ Run this after a meaningful deployment. Do not skip the encryption/decryption pr
 3. Call `GET /health` on each HTTPS endpoint.
 4. Verify unauthenticated Mail Control and Vault Control mutations return `401`.
 5. Call `POST /v1/mailboxes/ensure` on Mail Control with a bearer token.
-6. Verify first creation returns private keys and repeated ensure calls return zero new keys.
+6. Verify first creation returns private keys, public mailbox/source records, hosted registry/Blob coordinates, and that repeated ensure calls return zero new keys while preserving the same public key ids.
 7. Send SMTP to the proof TCP port, currently `2525`.
 8. Verify accepted mail appears in Blob Storage as encrypted mail.
 9. Decrypt through the private keys stored in the owning agent vault or, during first proof only, the one-time keys returned by Mail Control.

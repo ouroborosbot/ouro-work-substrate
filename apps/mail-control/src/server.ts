@@ -1,13 +1,30 @@
 import * as http from "node:http"
 import * as fs from "node:fs"
+import { normalizeMailAddress } from "@ouro/work-protocol"
 import type { MailRegistryStore } from "./store"
 import { logEvent } from "./log"
+
+export interface PublicRegistryCoordinates {
+  kind: "azure-blob"
+  azureAccountUrl: string
+  container: string
+  blob: string
+  domain: string
+}
+
+export interface BlobStoreCoordinates {
+  kind: "azure-blob"
+  azureAccountUrl: string
+  container: string
+}
 
 export interface MailControlOptions {
   store: MailRegistryStore
   adminToken?: string
   adminTokenFile?: string
   allowedEmailDomain: string
+  publicRegistry?: PublicRegistryCoordinates
+  blobStore?: BlobStoreCoordinates
   rateLimitWindowMs?: number
   rateLimitMax?: number
   allowUnauthenticatedLocal?: boolean
@@ -108,6 +125,10 @@ function errorStatus(error: unknown, reason: string): number {
   return 500
 }
 
+function publicRegistryResponse(options: MailControlOptions, revision: string): (PublicRegistryCoordinates & { revision: string }) | undefined {
+  return options.publicRegistry ? { ...options.publicRegistry, revision } : undefined
+}
+
 export function createMailControlServer(options: MailControlOptions): http.Server {
   const buckets = new Map<string, Bucket>()
   return http.createServer(async (request, response) => {
@@ -149,6 +170,11 @@ export function createMailControlServer(options: MailControlOptions): http.Serve
         ...(source ? { source } : {}),
         ...(sourceTag ? { sourceTag } : {}),
       })
+      const mailbox = result.registry.mailboxes.find((entry) =>
+        normalizeMailAddress(entry.canonicalAddress) === normalizeMailAddress(result.mailboxAddress))
+      const sourceGrant = result.sourceAlias
+        ? result.registry.sourceGrants.find((entry) => normalizeMailAddress(entry.aliasAddress) === normalizeMailAddress(result.sourceAlias!))
+        : undefined
       logEvent({
         component: "mail-control",
         event: "mailbox_ensured",
@@ -168,6 +194,10 @@ export function createMailControlServer(options: MailControlOptions): http.Serve
         addedSourceGrant: result.addedSourceGrant,
         generatedPrivateKeys: result.generatedPrivateKeys,
         revision: result.revision,
+        ...(mailbox ? { mailbox } : {}),
+        ...(sourceGrant ? { sourceGrant } : {}),
+        ...(publicRegistryResponse(options, result.revision) ? { publicRegistry: publicRegistryResponse(options, result.revision) } : {}),
+        ...(options.blobStore ? { blobStore: options.blobStore } : {}),
       })
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)
