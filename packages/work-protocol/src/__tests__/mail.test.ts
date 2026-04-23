@@ -1,3 +1,5 @@
+import * as fs from "node:fs"
+import * as path from "node:path"
 import { describe, expect, it } from "vitest"
 import * as mailProtocol from "../mail"
 import {
@@ -7,6 +9,7 @@ import {
   decryptMailJson,
   decryptMailPayload,
   decryptStoredMailMessage,
+  describeMailProvenance,
   ensureMailboxRegistry,
   ensurePublicMailboxRegistry,
   generateMailKeyPair,
@@ -18,6 +21,24 @@ import {
   stableJson,
   snippetText,
 } from "../mail"
+
+type MailProvenanceContractCase = {
+  name: string
+  message: Parameters<typeof mailProtocol.describeMailProvenance>[0]
+  expected: ReturnType<typeof mailProtocol.describeMailProvenance>
+}
+
+type MailProvenanceContract = {
+  contract: "mail-provenance"
+  version: 1
+  canonicalPackage: "@ouro/work-protocol"
+  cases: MailProvenanceContractCase[]
+}
+
+function readMailProvenanceContract(): MailProvenanceContract {
+  const contractPath = path.resolve(__dirname, "..", "..", "contracts", "mail-provenance.v1.json")
+  return JSON.parse(fs.readFileSync(contractPath, "utf-8")) as MailProvenanceContract
+}
 
 describe("work protocol mail", () => {
   it("serializes stable JSON and safe route parts", () => {
@@ -244,6 +265,23 @@ describe("work protocol mail", () => {
       recipient: ensured.sourceAlias,
       sendAsHumanAllowed: false,
     })
+  })
+
+  it("keeps the machine-readable mail provenance contract aligned with implementation", () => {
+    const contract = readMailProvenanceContract()
+
+    expect(contract).toEqual(expect.objectContaining({
+      contract: "mail-provenance",
+      version: 1,
+      canonicalPackage: "@ouro/work-protocol",
+    }))
+    expect(contract.cases.map((entry) => ({
+      name: entry.name,
+      actual: describeMailProvenance(entry.message),
+    }))).toEqual(contract.cases.map((entry) => ({
+      name: entry.name,
+      actual: entry.expected,
+    })))
   })
 
   it("encrypts raw and private mail for the agent-owned key", () => {
