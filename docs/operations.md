@@ -71,7 +71,7 @@ GitHub repository variables:
 
 Nonstandard exposed SMTP ports are diagnostic-only and must not back an MX record.
 
-Outbound native-agent mail uses Azure Communication Services Email. The Bicep deploy owns the Email Communication Service, the CustomerManaged `ouro.bot` email domain, and the Communication Services resource. The Event Grid delivery subscription is created by the deploy workflow after app deployment, using the same CLI path that succeeds against the global Communication resource. The domain starts unlinked until the DNS verification records are applied and verified; only then set `outboundEmailLinkVerifiedDomain=true` for the deploy that links the custom domain to the Communication Services resource.
+Outbound native-agent mail uses Azure Communication Services Email. The Bicep deploy owns the Email Communication Service, the CustomerManaged `ouro.bot` email domain, and the Communication Services resource. The Event Grid delivery subscription is created by the deploy workflow after app deployment, using the same CLI path that succeeds against the global Communication resource. The domain starts unlinked until the DNS verification records are applied and verified. The deploy workflow reads the current domain verification state and links the domain only after Domain, SPF, DKIM, and DKIM2 are all `Verified`; it preserves the linked domain once verification is complete instead of resetting it to empty on later deploys.
 
 The deploy workflow registers `Microsoft.Communication` and `Microsoft.EventGrid` before applying the Bicep template, then verifies both providers are `Registered`. If provider registration fails, fix subscription permissions or register the provider from an account with subscription-level rights and rerun the workflow.
 

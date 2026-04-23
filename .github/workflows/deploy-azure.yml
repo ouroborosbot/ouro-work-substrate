@@ -191,6 +191,52 @@ jobs:
           echo "mail_control_image=$mail_control_image" >> "$GITHUB_OUTPUT"
           echo "vault_control_image=$vault_control_image" >> "$GITHUB_OUTPUT"
 
+      - name: Determine outbound verified-domain link state
+        if: steps.deploy_decision.outputs.should_deploy == 'true'
+        id: outbound_link_state
+        shell: bash
+        run: |
+          set -euo pipefail
+          email_service_name="ouro-${AZURE_ENVIRONMENT_NAME}-email"
+          communication_service_name="ouro-${AZURE_ENVIRONMENT_NAME}-communication"
+          domain_name="ouro.bot"
+          domain_resource_id="/subscriptions/${{ vars.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${AZURE_RESOURCE_GROUP}/providers/Microsoft.Communication/emailServices/${email_service_name}/domains/${domain_name}"
+          verification_states='{}'
+          linked_domains='[]'
+          if az resource show --ids "$domain_resource_id" --api-version 2026-03-18 -o json > outbound-email-domain.json 2>/dev/null; then
+            verification_states="$(jq -c '.properties.verificationStates // {}' outbound-email-domain.json)"
+          fi
+          if az resource show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$communication_service_name" \
+            --resource-type Microsoft.Communication/communicationServices \
+            --api-version 2024-09-01-preview \
+            -o json > outbound-communication-service.json 2>/dev/null; then
+            linked_domains="$(jq -c '.properties.linkedDomains // []' outbound-communication-service.json)"
+          fi
+          domain_status="$(jq -r '.domain.status // "Missing"' <<< "$verification_states")"
+          spf_status="$(jq -r '.spf.status // "Missing"' <<< "$verification_states")"
+          dkim_status="$(jq -r '.dkim.status // "Missing"' <<< "$verification_states")"
+          dkim2_status="$(jq -r '.dkim2.status // "Missing"' <<< "$verification_states")"
+          already_linked="$(jq --arg domain_resource_id "$domain_resource_id" 'index($domain_resource_id) != null' <<< "$linked_domains")"
+          verified_ready="false"
+          if [[ "$domain_status" == "Verified" && "$spf_status" == "Verified" && "$dkim_status" == "Verified" && "$dkim2_status" == "Verified" ]]; then
+            verified_ready="true"
+          fi
+          outbound_email_link_verified_domain="false"
+          if [[ "$already_linked" == "true" || "$verified_ready" == "true" ]]; then
+            outbound_email_link_verified_domain="true"
+          fi
+          echo "outbound_email_link_verified_domain=$outbound_email_link_verified_domain" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Outbound domain link state"
+            echo
+            echo "- Domain resource: \`$domain_resource_id\`"
+            echo "- Domain/SPF/DKIM/DKIM2: \`$domain_status / $spf_status / $dkim_status / $dkim2_status\`"
+            echo "- Already linked: \`$already_linked\`"
+            echo "- linked only after DNS verification is complete: \`$outbound_email_link_verified_domain\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Deploy apps
         if: steps.deploy_decision.outputs.should_deploy == 'true'
         shell: bash
@@ -225,6 +271,7 @@ jobs:
               mailIngressMaxConnections="$AZURE_MAIL_INGRESS_MAX_CONNECTIONS" \
               mailIngressConnectionRateLimitMax="$AZURE_MAIL_INGRESS_CONNECTION_RATE_LIMIT_MAX" \
               mailIngressConnectionRateLimitWindowMs="$AZURE_MAIL_INGRESS_CONNECTION_RATE_LIMIT_WINDOW_MS" \
+              outboundEmailLinkVerifiedDomain="${{ steps.outbound_link_state.outputs.outbound_email_link_verified_domain }}" \
               mailIngressTlsKey="$MAIL_INGRESS_TLS_KEY" \
               mailIngressTlsCert="$MAIL_INGRESS_TLS_CERT" \
             --query properties.outputs \
