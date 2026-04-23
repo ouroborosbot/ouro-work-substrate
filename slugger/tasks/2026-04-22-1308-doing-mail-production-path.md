@@ -96,7 +96,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: PR URL, CI/merge/release/install evidence, installed CLI verification logs.
 **Acceptance**: The local agent runtime can rely on `ouro vault item` in the installed harness; `vault ops porkbun` still works as a deprecated alias over an ordinary item; DNS/mail workflow work is no longer blocked on unreleased harness surface changes.
 
-### ⬜ Unit 1a: Two-Lane Mail Contract — Tests
+### ✅ Unit 1a: Two-Lane Mail Contract — Tests
 **What**: Write failing tests/contract checks that native agent mail and delegated human mailbox source cannot collapse across protocol, harness types, tools, Outlook labels, prompt/sense summaries, and recovery records.
 **Output**: Red tests in work-substrate and/or harness for compartment/source labels, source-scoped policy, delegated reads, native autonomous send policy, and no delegated send-as-human path.
 **Acceptance**: Tests fail against the current production branch where the distinction is incomplete or not enforced end to end.
@@ -253,3 +253,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 18:49 Human explicitly flagged that the full-moon mail plan needs a fresh work-suite pass after the vault ontology correction and that packaging/deployment must be first-class scope, not an afterthought.
 - 2026-04-22 18:52 Unit 0d complete: ran a fresh work-suite refresh and recorded the three release lanes, shared protocol drift risk, branch protection facts, and next thin slice in `full-moon-work-suite-refresh.md`.
 - 2026-04-22 19:13 Unit 0e complete: merged harness PR #587, watched green main publish job, verified npm/latest at `0.1.0-alpha.466`, updated local `ouro` to alpha.466, and verified installed generic vault item status/list plus deprecated Porkbun compatibility alias. Evidence lives in `unit0e-merge-publish-install.md`.
+- 2026-04-22 19:18 Unit 1a complete: added red tests in substrate and harness for shared mailbox provenance, access-log provenance, attention summaries, outbound native-send authority, and owner-scoped Outlook delegated source folders. Evidence lives in `unit1a-red-tests.md`.
