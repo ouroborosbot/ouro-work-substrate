@@ -9,6 +9,7 @@ const blobServiceClientMock = vi.hoisted(() => vi.fn(function BlobServiceClient(
   this.getContainerClient = getContainerClientMock
 }))
 const defaultAzureCredentialMock = vi.hoisted(() => vi.fn(function DefaultAzureCredential() {}))
+const createAcsSenderUsernameProvisionerMock = vi.hoisted(() => vi.fn(() => ({ ensureSenderUsername: vi.fn() })))
 
 vi.mock("../server", () => ({
   startMailControlServer: startMailControlServerMock,
@@ -20,6 +21,10 @@ vi.mock("@azure/storage-blob", () => ({
 
 vi.mock("@azure/identity", () => ({
   DefaultAzureCredential: defaultAzureCredentialMock,
+}))
+
+vi.mock("../sender-usernames", () => ({
+  createAcsSenderUsernameProvisioner: createAcsSenderUsernameProvisionerMock,
 }))
 
 function tempToken(): string {
@@ -34,6 +39,7 @@ afterEach(() => {
   getContainerClientMock.mockClear()
   blobServiceClientMock.mockClear()
   defaultAzureCredentialMock.mockClear()
+  createAcsSenderUsernameProvisionerMock.mockClear()
 })
 
 describe("runMailControl", () => {
@@ -49,11 +55,21 @@ describe("runMailControl", () => {
       "--registry-domain", "ouro.bot",
       "--admin-token-file", tokenFile,
       "--allowed-email-domain", "ouro.bot",
+      "--outbound-acs-subscription-id", "00000000-0000-0000-0000-000000000000",
+      "--outbound-acs-resource-group", "rg-ouro-work-substrate",
+      "--outbound-acs-email-service", "ouro-prod-email",
     ])
 
     expect(defaultAzureCredentialMock).toHaveBeenCalledWith({ managedIdentityClientId: "mi-client-id" })
     expect(blobServiceClientMock).toHaveBeenCalledTimes(1)
     expect(getContainerClientMock).toHaveBeenCalledWith("mailroom")
+    expect(createAcsSenderUsernameProvisionerMock).toHaveBeenCalledWith(expect.objectContaining({
+      subscriptionId: "00000000-0000-0000-0000-000000000000",
+      resourceGroupName: "rg-ouro-work-substrate",
+      emailServiceName: "ouro-prod-email",
+      domainName: "ouro.bot",
+      managedIdentityClientId: "mi-client-id",
+    }))
     const options = startMailControlServerMock.mock.calls[0]![0] as { outboundEvents?: unknown; blobStore?: unknown }
     expect(options.outboundEvents).toEqual(expect.objectContaining({
       recordDeliveryEvent: expect.any(Function),
@@ -61,6 +77,11 @@ describe("runMailControl", () => {
     expect(options.blobStore).toEqual(expect.objectContaining({
       kind: "azure-blob",
       container: "mailroom",
+    }))
+    expect(options).toEqual(expect.objectContaining({
+      outboundSenderProvisioner: expect.objectContaining({
+        ensureSenderUsername: expect.any(Function),
+      }),
     }))
   })
 
@@ -76,5 +97,6 @@ describe("runMailControl", () => {
     const options = startMailControlServerMock.mock.calls[0]![0] as { outboundEvents?: unknown; blobStore?: unknown }
     expect(options.outboundEvents).toBeUndefined()
     expect(options.blobStore).toBeUndefined()
+    expect(options).not.toHaveProperty("outboundSenderProvisioner")
   })
 })

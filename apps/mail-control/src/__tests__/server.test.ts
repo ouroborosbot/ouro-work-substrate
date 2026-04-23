@@ -282,6 +282,95 @@ describe("mail control server", () => {
     }
   })
 
+  it("ensures the native ACS sender username before mutating registry state", async () => {
+    const ensureSenderUsername = vi.fn(async () => ({ senderUsername: "slugger" }))
+    const ensureMailbox = vi.fn(async () => ({
+      registry: {
+        schemaVersion: 1 as const,
+        domain: "ouro.bot",
+        mailboxes: [{
+          agentId: "slugger",
+          mailboxId: "mailbox_slugger",
+          canonicalAddress: "slugger@ouro.bot",
+          keyId: "mail_slugger-native_123",
+          publicKeyPem: "public",
+          defaultPlacement: "screener" as const,
+        }],
+        sourceGrants: [],
+      },
+      mailboxAddress: "slugger@ouro.bot",
+      sourceAlias: null,
+      addedMailbox: true,
+      addedSourceGrant: false,
+      keys: { mail_slugger_native_123: "private" },
+      generatedPrivateKeys: { mail_slugger_native_123: "private" },
+      revision: "1:0:123",
+    }))
+    const read = vi.fn(async () => ({
+      registry: { schemaVersion: 1 as const, domain: "ouro.bot", mailboxes: [], sourceGrants: [] },
+      revision: "0:0:72",
+    }))
+    const server = createMailControlServer({
+      store: { ensureMailbox, rotateMailboxKeys: vi.fn(), read },
+      adminToken: "secret",
+      allowedEmailDomain: "ouro.bot",
+      outboundSenderProvisioner: { ensureSenderUsername },
+    } as Parameters<typeof createMailControlServer>[0])
+    const port = await listen(server)
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ agentId: "slugger" }),
+      })
+      expect(response.status).toBe(200)
+      expect(ensureSenderUsername).toHaveBeenCalledWith({ agentId: "slugger" })
+      expect(ensureMailbox).toHaveBeenCalledWith({ agentId: "slugger" })
+      expect(ensureSenderUsername.mock.invocationCallOrder[0]).toBeLessThan(ensureMailbox.mock.invocationCallOrder[0]!)
+    } finally {
+      server.close()
+    }
+  })
+
+  it("fails before mailbox mutation when ACS sender username provisioning fails", async () => {
+    const ensureSenderUsername = vi.fn(async () => {
+      throw new Error("ACS sender username ensure failed for slugger@ouro.bot: forbidden")
+    })
+    const ensureMailbox = vi.fn(async () => {
+      throw new Error("should not be called")
+    })
+    const read = vi.fn(async () => ({
+      registry: { schemaVersion: 1 as const, domain: "ouro.bot", mailboxes: [], sourceGrants: [] },
+      revision: "0:0:72",
+    }))
+    const server = createMailControlServer({
+      store: { ensureMailbox, rotateMailboxKeys: vi.fn(), read },
+      adminToken: "secret",
+      allowedEmailDomain: "ouro.bot",
+      outboundSenderProvisioner: { ensureSenderUsername },
+    } as Parameters<typeof createMailControlServer>[0])
+    const port = await listen(server)
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/ensure`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ agentId: "slugger" }),
+      })
+      const body = await response.json() as Record<string, unknown>
+      expect(response.status).toBe(500)
+      expect(String(body.error)).toContain("ACS sender username ensure failed for slugger@ouro.bot")
+      expect(ensureMailbox).not.toHaveBeenCalled()
+    } finally {
+      server.close()
+    }
+  })
+
   it("returns public records and hosted Blob reader coordinates for harness setup", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-hosted-coordinates-"))
     const server = createMailControlServer({

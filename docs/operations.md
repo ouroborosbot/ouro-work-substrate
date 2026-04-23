@@ -73,6 +73,8 @@ Nonstandard exposed SMTP ports are diagnostic-only and must not back an MX recor
 
 Outbound native-agent mail uses Azure Communication Services Email. The Bicep deploy owns the Email Communication Service and Communication Services resource. The CustomerManaged `ouro.bot` email domain is created on first deploy, then the deploy lane treats an existing ACS custom domain as an existing resource on later deploys so Azure keeps its verification state instead of resetting it. The Event Grid delivery subscription is created by the deploy workflow after app deployment, using the same CLI path that succeeds against the global Communication resource. The domain starts unlinked until the DNS verification records are applied and verified. The deploy workflow reads the current domain verification state and links the domain only after Domain, SPF, DKIM, and DKIM2 are all `Verified`; it preserves the linked domain once verification is complete instead of resetting it to empty on later deploys.
 
+Domain verification is not enough to send as `slugger@ouro.bot` or another native agent address. ACS also requires a `senderUsernames/<local-part>` child resource on the custom domain. Mail Control now provisions that sender username idempotently before it returns mailbox-ensure success, using the same managed identity that already reaches Blob Storage plus a domain-scoped ARM `Contributor` role assignment on the ACS email domain. If a live send ever fails with `Invalid email sender username`, first verify the latest deploy is live, then rerun `POST /v1/mailboxes/ensure` or `ouro connect mail` so Mail Control can repair the missing sender username.
+
 The deploy workflow first checks `Microsoft.Communication` and `Microsoft.EventGrid`, then requests registration only when one is still unregistered. That keeps normal resource-group-scoped deploys from failing after the providers are already enabled. The deploy identity only needs subscription-level register permission when a provider is still unregistered. If a provider genuinely is not registered and the workflow cannot register it, use an account with subscription-level rights once, then rerun the workflow.
 
 The ACS access key is not a harness-managed `ouro connect` credential. Store it as an ordinary Slugger vault item, then reference that item from `mailroom.outbound` in runtime config:
@@ -155,17 +157,18 @@ Run this after a meaningful deployment. Do not skip the encryption/decryption pr
 4. Verify unauthenticated Mail Control and Vault Control mutations return `401`.
 5. Call `POST /v1/mailboxes/ensure` on Mail Control with a bearer token.
 6. Verify first creation returns private keys, public mailbox/source records, hosted registry/Blob coordinates, and that repeated ensure calls return zero new keys while preserving the same public key ids.
-7. If ensure reports public key ids that are absent from the owning agent vault, repair through harness setup with `ouro account ensure --rotate-missing-mail-keys ...`. That calls `POST /v1/mailboxes/rotate-keys` only for missing key ids and stores the new one-time private keys. Rotation cannot recover mail already encrypted to a lost private key.
-8. After rotation, send a fresh inbound probe and verify its encrypted envelope key id is one of the key ids now present in the owning agent vault. If future mail still encrypts to an old missing key, check the deployed Mail Ingress image/revision and any explicit `--registry-refresh-ms` cache setting before rotating again.
-9. Check SMTP `EHLO` on public port `25` from a network that can originate outbound SMTP. Many residential, hotel, and cloud networks block outbound port `25`; when that happens, use an external TCP checker for reachability and a real mailbox-provider send for full SMTP delivery proof.
-10. When TLS secrets are configured, verify `STARTTLS` is advertised; `AUTH` must not be advertised.
-11. Verify `SIZE` is advertised and a declared oversized `MAIL FROM SIZE=` is rejected before `DATA`.
-12. Verify the recipient limit rejects excess recipients in one transaction.
-13. Send accepted SMTP mail through the current public edge. In proof deployments that intentionally expose a nonstandard port, record that port explicitly in the artifact.
-14. Verify accepted mail appears in Blob Storage as encrypted mail.
-15. Decrypt through the private keys stored in the owning agent vault or, during first proof only, the one-time keys returned by Mail Control.
-16. Confirm native mail lands in Screener and delegated HEY alias mail lands in Imbox with owner/source provenance.
-17. Inspect Mail Ingress logs for body-safe events. Logs may include addresses, limits, and safe error categories; they must not include raw mail bodies, private MIME payloads, TLS private keys, provider credentials, or vault unlock material.
+7. Verify ensure can also provision the native ACS sender username for the mailbox local-part before it reports success. A later `Invalid email sender username` send failure means this step or its ARM role assignment drifted.
+8. If ensure reports public key ids that are absent from the owning agent vault, repair through harness setup with `ouro account ensure --rotate-missing-mail-keys ...`. That calls `POST /v1/mailboxes/rotate-keys` only for missing key ids and stores the new one-time private keys. Rotation cannot recover mail already encrypted to a lost private key.
+9. After rotation, send a fresh inbound probe and verify its encrypted envelope key id is one of the key ids now present in the owning agent vault. If future mail still encrypts to an old missing key, check the deployed Mail Ingress image/revision and any explicit `--registry-refresh-ms` cache setting before rotating again.
+10. Check SMTP `EHLO` on public port `25` from a network that can originate outbound SMTP. Many residential, hotel, and cloud networks block outbound port `25`; when that happens, use an external TCP checker for reachability and a real mailbox-provider send for full SMTP delivery proof.
+11. When TLS secrets are configured, verify `STARTTLS` is advertised; `AUTH` must not be advertised.
+12. Verify `SIZE` is advertised and a declared oversized `MAIL FROM SIZE=` is rejected before `DATA`.
+13. Verify the recipient limit rejects excess recipients in one transaction.
+14. Send accepted SMTP mail through the current public edge. In proof deployments that intentionally expose a nonstandard port, record that port explicitly in the artifact.
+15. Verify accepted mail appears in Blob Storage as encrypted mail.
+16. Decrypt through the private keys stored in the owning agent vault or, during first proof only, the one-time keys returned by Mail Control.
+17. Confirm native mail lands in Screener and delegated HEY alias mail lands in Imbox with owner/source provenance.
+18. Inspect Mail Ingress logs for body-safe events. Logs may include addresses, limits, and safe error categories; they must not include raw mail bodies, private MIME payloads, TLS private keys, provider credentials, or vault unlock material.
 
 For Slugger, the expected public addresses are:
 

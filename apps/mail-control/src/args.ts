@@ -4,6 +4,12 @@ export interface MailControlArgs {
   azureAccountUrl?: string
   storePath?: string
   azureManagedIdentityClientId?: string
+  outboundAcs?: {
+    subscriptionId: string
+    resourceGroupName: string
+    emailServiceName: string
+    domainName: string
+  }
   registryContainer: string
   registryBlob: string
   registryDomain: string
@@ -26,6 +32,10 @@ const KEY_VALUE_ARGS = new Map([
   ["registry-domain", "--registry-domain"],
   ["admin-token-file", "--admin-token-file"],
   ["allowed-email-domain", "--allowed-email-domain"],
+  ["outbound-acs-subscription-id", "--outbound-acs-subscription-id"],
+  ["outbound-acs-resource-group", "--outbound-acs-resource-group"],
+  ["outbound-acs-email-service", "--outbound-acs-email-service"],
+  ["outbound-acs-domain", "--outbound-acs-domain"],
   ["host", "--host"],
   ["port", "--port"],
   ["rate-limit-window-ms", "--rate-limit-window-ms"],
@@ -80,6 +90,20 @@ export function parseMailControlArgs(args: string[]): MailControlArgs {
   if (!adminToken && !allowUnauthenticatedLocal) {
     throw new Error("Missing --admin-token-file. Use --allow-unauthenticated-local only for local development.")
   }
+  const registryDomain = optionalValue(expanded, "--registry-domain") ?? "ouro.bot"
+  const outboundSubscriptionId = optionalValue(expanded, "--outbound-acs-subscription-id")
+  const outboundResourceGroupName = optionalValue(expanded, "--outbound-acs-resource-group")
+  const outboundEmailServiceName = optionalValue(expanded, "--outbound-acs-email-service")
+  const outboundDomainName = optionalValue(expanded, "--outbound-acs-domain")
+  const outboundAcsValues = [
+    outboundSubscriptionId,
+    outboundResourceGroupName,
+    outboundEmailServiceName,
+    outboundDomainName,
+  ].filter((value) => typeof value === "string")
+  if (outboundAcsValues.length > 0 && (!outboundSubscriptionId || !outboundResourceGroupName || !outboundEmailServiceName)) {
+    throw new Error("outbound ACS sender provisioning requires --outbound-acs-subscription-id, --outbound-acs-resource-group, and --outbound-acs-email-service together")
+  }
   return {
     ...(azureAccountUrl ? { azureAccountUrl } : {}),
     ...(storePath ? { storePath } : {}),
@@ -88,9 +112,19 @@ export function parseMailControlArgs(args: string[]): MailControlArgs {
       : {}),
     registryContainer: optionalValue(expanded, "--registry-container") ?? "mailroom",
     registryBlob: optionalValue(expanded, "--registry-blob") ?? "registry/mailroom.json",
-    registryDomain: optionalValue(expanded, "--registry-domain") ?? "ouro.bot",
+    registryDomain,
     ...(adminTokenFile ? { adminTokenFile } : {}),
     ...(adminToken ? { adminToken } : {}),
+    ...(outboundSubscriptionId && outboundResourceGroupName && outboundEmailServiceName
+      ? {
+          outboundAcs: {
+            subscriptionId: outboundSubscriptionId,
+            resourceGroupName: outboundResourceGroupName,
+            emailServiceName: outboundEmailServiceName,
+            domainName: (outboundDomainName ?? registryDomain).toLowerCase(),
+          },
+        }
+      : {}),
     allowedEmailDomain: (optionalValue(expanded, "--allowed-email-domain") ?? "ouro.bot").toLowerCase(),
     host: optionalValue(expanded, "--host") ?? "0.0.0.0",
     port: optionalPort(expanded, "--port", 8080),
@@ -99,4 +133,3 @@ export function parseMailControlArgs(args: string[]): MailControlArgs {
     allowUnauthenticatedLocal,
   }
 }
-

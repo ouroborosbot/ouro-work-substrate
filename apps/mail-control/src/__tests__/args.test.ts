@@ -20,6 +20,9 @@ describe("mail control args", () => {
       "registry-container=mail",
       "registry-blob=registry/prod.json",
       "port=9090",
+      "outbound-acs-subscription-id=00000000-0000-0000-0000-000000000000",
+      "outbound-acs-resource-group=rg-ouro-work-substrate",
+      "outbound-acs-email-service=ouro-prod-email",
     ])
 
     expect(parsed.azureAccountUrl).toBe("https://storage.blob.core.windows.net")
@@ -27,6 +30,12 @@ describe("mail control args", () => {
     expect(parsed.registryContainer).toBe("mail")
     expect(parsed.registryBlob).toBe("registry/prod.json")
     expect(parsed.port).toBe(9090)
+    expect(parsed.outboundAcs).toEqual({
+      subscriptionId: "00000000-0000-0000-0000-000000000000",
+      resourceGroupName: "rg-ouro-work-substrate",
+      emailServiceName: "ouro-prod-email",
+      domainName: "ouro.bot",
+    })
   })
 
   it("parses optional host, domain, identity, and rate limits", () => {
@@ -42,6 +51,10 @@ describe("mail control args", () => {
       "--host", "127.0.0.1",
       "--rate-limit-window-ms", "500",
       "--rate-limit-max", "3",
+      "--outbound-acs-subscription-id", "11111111-1111-1111-1111-111111111111",
+      "--outbound-acs-resource-group", "rg-work",
+      "--outbound-acs-email-service", "ouro-prod-email",
+      "--outbound-acs-domain", "mail.OURO.BOT",
       "unknown=value",
     ])
 
@@ -52,6 +65,12 @@ describe("mail control args", () => {
     expect(parsed.host).toBe("127.0.0.1")
     expect(parsed.rateLimitWindowMs).toBe(500)
     expect(parsed.rateLimitMax).toBe(3)
+    expect(parsed.outboundAcs).toEqual({
+      subscriptionId: "11111111-1111-1111-1111-111111111111",
+      resourceGroupName: "rg-work",
+      emailServiceName: "ouro-prod-email",
+      domainName: "mail.ouro.bot",
+    })
   })
 
   it("allows explicit unauthenticated local development", () => {
@@ -83,5 +102,10 @@ describe("mail control args", () => {
       "--allow-unauthenticated-local",
       "--port",
     ])).toThrow("--port must be a non-negative integer")
+    expect(() => parseMailControlArgs([
+      "--store", "/tmp/registry.json",
+      "--allow-unauthenticated-local",
+      "--outbound-acs-subscription-id", "11111111-1111-1111-1111-111111111111",
+    ])).toThrow("outbound ACS sender provisioning requires --outbound-acs-subscription-id, --outbound-acs-resource-group, and --outbound-acs-email-service together")
   })
 })
