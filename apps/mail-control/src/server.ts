@@ -175,6 +175,7 @@ export function createMailControlServer(options: MailControlOptions): http.Serve
       const sourceGrant = result.sourceAlias
         ? result.registry.sourceGrants.find((entry) => normalizeMailAddress(entry.aliasAddress) === normalizeMailAddress(result.sourceAlias!))
         : undefined
+      const publicRegistry = publicRegistryResponse(options, result.revision)
       logEvent({
         component: "mail-control",
         event: "mailbox_ensured",
@@ -194,9 +195,9 @@ export function createMailControlServer(options: MailControlOptions): http.Serve
         addedSourceGrant: result.addedSourceGrant,
         generatedPrivateKeys: result.generatedPrivateKeys,
         revision: result.revision,
-        ...(mailbox ? { mailbox } : {}),
+        mailbox,
         ...(sourceGrant ? { sourceGrant } : {}),
-        ...(publicRegistryResponse(options, result.revision) ? { publicRegistry: publicRegistryResponse(options, result.revision) } : {}),
+        ...(publicRegistry ? { publicRegistry } : {}),
         ...(options.blobStore ? { blobStore: options.blobStore } : {}),
       })
     } catch (error) {
