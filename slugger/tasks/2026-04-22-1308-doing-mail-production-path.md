@@ -176,7 +176,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Red harness tests and hosted protocol tests where needed.
 **Acceptance**: Tests fail until native autonomous sending is policy-governed and auditable.
 
-### ⬜ Unit 6b: Native Agent Mail Autonomy — Implementation
+### ✅ Unit 6b: Native Agent Mail Autonomy — Implementation
 **What**: Implement production native send/receive behavior: compact sense state, cross-sense attention, authenticated outbound submission, policy-governed autonomous sends, confirmation fallback, and kill switch.
 **Output**: Harness tools/sense/outbound code, provider config, hosted event endpoints if needed, docs.
 **Acceptance**: Slugger can receive native mail and send as `slugger@ouro.bot` within explicit native-agent policy while refusing out-of-policy sends.
@@ -272,3 +272,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-23 00:08 Unit 5c complete: closed delegated-source coverage, added body-safe source-state Nerves events, bumped harness release lane to alpha.469, and passed substrate `ci:local`, harness coverage/audit, release preflight, and package e2e. Evidence lives in `unit5c-coverage-refactor.md`.
 - 2026-04-23 00:27 Unit 5 merge/release/deploy evidence captured: substrate PR #17 merged/deployed to Azure at `cdc84d0`, harness PR #590 merged/published alpha.469, local `ouro`/`ouro.bot` report `0.1.0-alpha.469`, and hosted health checks are green. Evidence lives in `unit5d-merge-release-deploy.md`.
 - 2026-04-23 00:42 Unit 6a complete: added and pushed red substrate/harness tests for native autonomous send policy, confirmation fallback, rate/recipient limits, kill switch, delegated send-as-human refusal, runtime config parsing, docs guidance, and native receive attention behavior. Evidence lives in `unit6a-red-tests.md`.
+- 2026-04-23 00:50 Unit 6b complete: implemented shared native-mail autonomy policy/evaluator contracts, harness autonomous send enforcement and audit fields, runtime config parsing, guarded `mail_send` behavior, and outbound docs. Evidence lives in `unit6b-implementation.md`.
