@@ -22,7 +22,7 @@ Bring Agent Mail to full production shape across Ouro Work Substrate and the Our
 - [ ] Production setup calls hosted Mail Control, stores one-time private keys in the owning agent vault, configures hosted Blob reader coordinates, enables Mail sense, and reports native plus delegated addresses without printing secrets.
 - [ ] Setup and repair are idempotent across hosted registry, local registry, vault config, source grants, keys, and Blob settings.
 - [ ] Native agent mail and delegated human mailbox source stay separate in protocol records, storage compartments, access tools, Outlook, audit, policy, recovery, and prompt/sense context.
-- [ ] The harness vault surface is corrected before DNS/mail implementation: generic human-facing vault item commands exist, notes are first-class, `ouro connect` remains harness-managed only, and templates/compatibility aliases never create new credential species.
+- [x] The harness vault surface is corrected before DNS/mail implementation: generic human-facing vault item commands exist, notes are first-class, `ouro connect` remains harness-managed only, and templates/compatibility aliases never create new credential species.
 - [ ] DNS/mail production workflows consume explicit non-secret bindings that reference generic vault item paths; no code or docs treat the referenced item as an ops credential, authority, Porkbun credential, DNS credential, or provider-shaped ontology.
 - [ ] Production MX points to a proven port-25 edge with STARTTLS, size limits, transient/permanent failures, rate limits, recipient limits, and body-safe observability.
 - [ ] Native live mail to `slugger@ouro.bot` reaches encrypted Blob storage, decrypts through Slugger's vault key, enters the right Imbox/Screener state, and behaves as a body-safe sense.
@@ -77,7 +77,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Harness CLI/code/docs changes, compatibility behavior, and task notes. `docs/auth-and-providers.md` must replace the misleading `Operational Credentials` framing with `Vault Items, Managed Workflows, And Bindings` or equivalent wording.
 **Acceptance**: A human can store/check a non-runtime credential for Slugger without a provider-specific command; the existing Porkbun-related item remains usable as a normal vault item that a DNS workflow binding may reference.
 
-### ⬜ Unit 0c: Harness Vault Item Surface — Coverage And Release
+### ✅ Unit 0c: Harness Vault Item Surface — Coverage And Release
 **What**: Cover error paths, noninteractive failures, reserved item collisions, no-secret logging, notes handling, and command-help ergonomics; run harness tests/release preflight, merge/release/install as needed.
 **Output**: Coverage artifacts, PR/release evidence, and updated local installed `ouro`.
 **Acceptance**: 100% coverage on new vault-surface code and future agents see "vault item / credential with no assumed use" first in help/docs before templates or compatibility aliases. Docs/tests explicitly say notes are for human/agent orientation and are never machine contracts.
@@ -234,3 +234,5 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 17:56 Unit 0 complete: captured clean substrate and harness worktrees, live DNS/Azure/GitHub/vault facts, foundation mail carry-forward, and genuine remaining human gates in `unit0-baseline.md`.
 - 2026-04-22 18:04 Unit 0a complete: added and pushed red harness tests for generic vault item docs, help, parsing, execution, compatibility alias behavior, and agent-facing credential tool vocabulary. Evidence lives in `unit0a-red-tests.md`.
 - 2026-04-22 18:12 Unit 0b complete: implemented and pushed the generic harness vault item surface, documentation ladder, agent-tool vocabulary, and Porkbun deprecated compatibility alias. Evidence lives in `unit0b-implementation.md`.
+- 2026-04-22 18:49 Unit 0c complete: pushed harness commit `4dec8d50c9f5c05986352fb48616b9ceb229e563` with 100% full coverage, nerves audit pass, release preflight pass after alpha.466 version/changelog bump, and guardrail coverage for reserved/freeform vault item behavior. Evidence lives in `unit0c-coverage-release.md`.
+- 2026-04-22 18:49 Human explicitly flagged that the full-moon mail plan needs a fresh work-suite pass after the vault ontology correction and that packaging/deployment must be first-class scope, not an afterthought.
