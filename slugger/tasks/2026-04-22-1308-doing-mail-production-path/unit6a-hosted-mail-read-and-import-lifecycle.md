@@ -54,4 +54,35 @@ The user explicitly clarified that mail import/backfill must behave like a backg
 
 ### Interpretation
 
-The current command-driven import/backfill lane is acceptable as a repair primitive, but not yet as the final ergonomic surface. "Done" for full-moon mail requires a job lifecycle the agent can observe, report on, and react to without the human babysitting a shell.
+The old foreground-only import/backfill lane was not acceptable for full-moon mail. The harness now needs a durable background-job lifecycle that the agent can observe and react to.
+
+## Harness patch-forward on `slugger/mail-import-lifecycle`
+
+Implemented in the harness worktree and held to a restored `100%` coverage gate:
+
+- Added durable background-operation records under `state/background-operations/<id>.json`.
+- `ouro mail import-mbox` now launches in the background by default; `--foreground` remains available for direct execution and tests.
+- `ouro mail backfill-indexes` now launches in the background by default; `--foreground` remains available for direct execution and tests.
+- Foreground tracked runs write queued/running/succeeded/failed state transitions, progress, result/error payloads, and remediation hints.
+- `query_active_work` now includes mail background operations so the agent can answer status requests without reading logs or blocking conversation.
+- Successful completion and failure both queue a pending inner message and attempt `inner.wake`, so Slugger should learn immediately when import/backfill finishes or breaks.
+- Initial running state now includes concrete detail/progress (`file: ...`, `0 messages`) so the very first status check is already informative.
+
+## Intended operator shape
+
+This is now the model to preserve:
+
+1. Start an archive import or hosted backfill.
+2. Let the agent keep conversing normally while the work continues in the background.
+3. If Ari asks for status, Slugger checks `query_active_work` and reports the live operation summary/progress.
+4. If the job fails, Slugger gets a wake + pending message and can begin remediation.
+5. If the job succeeds, Slugger gets the same immediate wake path and can report completion without polling a shell transcript.
+
+## Remaining live proof after the harness patch
+
+Still required before this unit can be called fully complete:
+
+1. Release the harness change through the real publish/install path.
+2. Re-run a real delegated HEY archive import in background mode and verify live status visibility from the agent side.
+3. Re-run hosted index backfill in background mode and verify live failure/completion wake behavior from the agent side.
+4. Record any recovery friction that appears during the real Slugger-managed HEY/browser workflow and patch it forward.
