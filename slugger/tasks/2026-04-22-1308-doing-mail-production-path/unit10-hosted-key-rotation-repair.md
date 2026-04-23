@@ -133,12 +133,17 @@ New production finding:
 - That means hosted Mail Ingress could keep a stale Azure registry cache across rotation and continue encrypting future mail to lost public keys.
 - The harness mailbox reader also treated one undecryptable historic/stale-key record as fatal for the whole mailbox search.
 
-Follow-up fixes now in flight:
+Follow-up fixes completed:
 
-- Substrate branch `slugger/mail-registry-cache-and-decrypt-recovery` makes Azure Blob registry reads fresh by default (`--registry-refresh-ms 0`) and documents cache opt-in as unsafe without an invalidation plan.
-- Harness branch `slugger/mail-missing-key-reader-recovery` makes `mail_recent`, `mail_search`, and `mail_thread` keep working around missing old private keys while returning body-safe recovery warnings. It still throws on non-missing-key decrypt corruption.
+- Substrate PR #22, branch `slugger/mail-registry-cache-and-decrypt-recovery`, merged as `3c6463d91052a462f27fdebc39b01d398866f33e`.
+- Azure deploy run `24836327117` succeeded for `3c6463d91052a462f27fdebc39b01d398866f33e`.
+- Live `ouro-prod-mail-ingress` image is `ouroworkprodk2aumligevt3e.azurecr.io/ouro-mail-ingress:3c6463d91052a462f27fdebc39b01d398866f33e`.
+- Live `mail-ingress` startup log now includes `registryRefreshMs:0`.
+- Harness PR #593, branch `slugger/mail-missing-key-reader-recovery`, merged as `aa5d82d289c69ea231dcc225c21a6feed5e5fa07`.
+- Harness main coverage-gate run `24836492155` passed, including publish and published binary smoke.
+- Global installed packages now report `0.1.0-alpha.472` for both `ouro` and `ouro.bot`.
 
-Current verification:
+Verification:
 
 ```text
 # substrate
@@ -148,6 +153,17 @@ npm run ci:local
 # harness
 npx vitest run src/__tests__/mailroom/tools-mail.test.ts
 npm run test:coverage
+npm run release:preflight
+npm run test:e2e:package
 ```
+
+Live validation:
+
+- Sent a fresh native SMTP smoke through the live `ouro-prod-mail-ingress` container after deploy.
+- Subject: `Codex live native smoke 20260423T130636Z fresh-registry`
+- Live ingress accepted recipient `slugger@ouro.bot` and logged `mail_ingest_complete` with `accepted:1`.
+- Installed alpha.472 `mail_search` found new message `mail_9866316fe3dd482a46831fb192ca30e7` in native Screener with decrypted subject and snippet.
+- The same search returned a body-safe warning for old undecryptable smoke `mail_a7af4a0ff0bb5d10fd89a437414049bd`, encrypted to missing key `mail_slugger-native_6e4d749b49ae4bb9`, instead of failing the mailbox read.
+- Installed alpha.472 `mail_thread` opened `mail_9866316fe3dd482a46831fb192ca30e7` and decrypted body text `fresh registry live smoke 20260423T130636Z`.
 
 Do not rotate keys again as a cache-invalidation strategy. The correct production fix is fresh registry reads or explicit cache invalidation before accepting mail after rotation. Old mail already encrypted to a lost key remains unrecoverable unless the old private key can be restored from the owning agent vault.
