@@ -161,7 +161,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Red harness/work-substrate tests and HEY fixture cases.
 **Acceptance**: Tests fail where historical import and live delegated forwarding are not clearly separated.
 
-### ⬜ Unit 5b: Delegated HEY Source — Implementation
+### ✅ Unit 5b: Delegated HEY Source — Implementation
 **What**: Complete backfill/import and forwarding setup/recovery flow for Ari's HEY mailbox, including browser-automation hooks where available and guided fallback for login/MFA/export/forwarding.
 **Output**: Harness setup/onboarding changes, source-state records, docs, and verification tooling.
 **Acceptance**: Ari's imported and future-forwarded HEY mail are searchable/readable with bounded audited tools and always labeled as delegated source mail.
@@ -268,3 +268,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 22:50 Unit 4d deploy-hook repair complete: fixed the post-merge Azure deploy skip decision to compare the current deployed commit-tagged image against the CI-tested commit range instead of trusting a docs-only head commit. Evidence lives in `unit4d-deploy-hook-repair.md`.
 - 2026-04-22 23:20 Unit 4e harness release-lane repair complete: alpha.467 published but its main smoke hit an npm `ECONNRESET`; harness PR #589 added retry coverage, published alpha.468 cleanly, and local `ouro`/`ouro.bot` now report `0.1.0-alpha.468`. Evidence lives in `unit4e-harness-release-lane-repair.md`.
 - 2026-04-22 23:36 Unit 5a complete: added red substrate and harness tests for delegated HEY archive freshness/provenance, no import wake storm, live SMTP ingest provenance, Slugger-managed HEY browser setup state, wrong-alias recovery, CLI output, and docs guidance. Evidence lives in `unit5a-red-tests.md`.
+- 2026-04-22 23:43 Unit 5b complete: implemented shared ingest provenance, historical MBOX import freshness, source-state recovery, CLI import output, and HEY setup docs. Evidence lives in `unit5b-implementation.md`.
