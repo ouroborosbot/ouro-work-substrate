@@ -67,7 +67,7 @@ Manual deployment remains available for token rotation, repairs, and proof-port 
 
 Phase 5 is the real inbound mail decision: production MX, port `25`, DNS, HEY forwarding, and operational monitoring.
 
-Status: gated. This requires final human confirmation and may require a dedicated Azure mail edge if Container Apps is not the right final SMTP endpoint.
+Status: gated on live proof, not a separate approval ceremony. This may require a dedicated Azure mail edge if Container Apps is not the right final SMTP endpoint.
 
 ## Branch Protection
 

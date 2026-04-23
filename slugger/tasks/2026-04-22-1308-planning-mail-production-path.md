@@ -28,6 +28,7 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - Preserve local development setup as an explicit mode, but prevent local-only registry/key generation from being mistaken for production readiness.
 - Keep shared protocol semantics synchronized across repos, especially mailbox records, source-grant aliases, key ids, placements, outbound statuses, and encryption/decryption behavior.
 - Configure the local harness to read and update the hosted Azure Blob mail store through a least-privilege credential stored outside Git and preferably inside the agent vault.
+- Patch the harness vault credential surface before DNS/mail implementation: expose generic human-facing vault item commands, keep notes first-class, reserve `ouro connect` for harness-managed capabilities, and make provider-specific helpers compatibility/templates over ordinary vault items.
 - Prove native inbound `slugger@ouro.bot` over real SMTP port 25, with unknown native senders landing in Screener, known/screened-in senders reaching Imbox, and sense attention never injecting raw bodies into prompt context.
 - Prove delegated HEY inbound `me.mendelow.ari.slugger@ouro.bot` over real SMTP port 25, with owner/source provenance, source-scoped policy, and UI/tooling that always identifies it as Ari's HEY mail delegated to Slugger.
 - Backfill Ari's delegated HEY source with export/import, label imported mail as historical/fresh-through material, and avoid flooding Screener/attention during archive import.
@@ -59,6 +60,7 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - [ ] Re-running setup is idempotent: no duplicate registry records, no lost private keys, clear "already configured" output, and repair guidance when hosted registry, local registry, vault config, or Blob settings disagree.
 - [ ] Key-loss recovery is explicit: the system detects missing vault-held private keys, does not silently regenerate incompatible keys, and offers a human-approved rotation/repair path with a warning that old encrypted mail needs the old key or vault backup.
 - [ ] The harness and work-protocol models stay synchronized by dependency, generator, or contract tests; outbound statuses and source-grant alias semantics cannot drift silently between repos.
+- [ ] The harness has a production generic vault item surface for non-runtime credentials, with hidden secret entry, notes, metadata-only status/list, reserved-item guardrails, docs, and tests. `vault ops porkbun` remains only a compatibility/template helper over an ordinary vault item.
 - [ ] DNS provider access is set up outside Git as a generic agent-vault credential item plus explicit workflow binding, documented for future sessions, and verified with a read-only credential check before any DNS mutation. The current `ouro.bot` binding may use Porkbun.
 - [ ] Existing `ouro.bot` DNS records are backed up before changes; DNS automation has dry-run, apply, verify, and rollback modes.
 - [ ] `mx1.ouro.bot` resolves to the proven production inbound edge, and `ouro.bot` MX no longer points at `ouro-bot.mail.protection.outlook.com` before live mail is declared ready.
@@ -118,6 +120,7 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - Current harness reader already has an Azure Blob store shape, but production setup must configure the actual hosted Blob coordinates and least-privilege credential path.
 - Current outbound records store `text` directly in outbound JSON; production outbound needs a privacy review before writing sent bodies to Blob-backed stores.
 - Mail private keys remain in the owning agent vault, not Blob Storage, GitHub, Container Apps, logs, or scratch docs.
+- The harness already has agent-facing `credential_*` tools and a generic Bitwarden/Vaultwarden `CredentialStore`, but the human-facing CLI overfit on `vault ops porkbun`. First production work must fix that surface so a future agent sees ordinary vault items before provider-specific helpers.
 
 ## Context / References
 - `AGENTS.md`: trust invariants, repo boundary, human-only gates, and task workflow.
@@ -168,7 +171,7 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
   - HEY forwarding target: delegated HEY forwarding uses `me.mendelow.ari.slugger@ouro.bot`, not `slugger@ouro.bot`.
   - Live test mail: human can send or approve test messages from HEY and at least one outside mailbox, and can confirm any provider/domain verification emails that require manual action.
   - Secret hygiene: secrets go only into agent vault, GitHub Actions secrets, Azure secrets/Key Vault/Container App secrets, macOS Keychain, or another explicit secret store; never into chat, docs, commits, PR bodies, or logs.
-- Recommended execution shape after approval: multiple narrow PRs under this full-moon plan, roughly contract/protocol sync, hosted provisioning integration, inbound edge/TLS/DNS automation, harness hosted reader and setup recovery, HEY onboarding automation, outbound provider/events, docs/smoke/deploy. The doing doc should define exact units before execution.
+- Recommended execution shape after approval: multiple narrow PRs under this full-moon plan, roughly harness vault item surface correction, contract/protocol sync, hosted provisioning integration, inbound edge/TLS/DNS automation, harness hosted reader and setup recovery, HEY onboarding automation, outbound provider/events, docs/smoke/deploy. The doing doc should define exact units before execution.
 
 ## Progress Log
 - 2026-04-22 13:09 Created
@@ -179,3 +182,4 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - 2026-04-22 13:39 Clarified the local harness checkout and `ouroborosbot/ouroboros` remote
 - 2026-04-22 14:32 Reviewed foundation mail docs, marked process gates waived, separated native agent mail from delegated human mailbox source, and added policy-governed autonomous native sending
 - 2026-04-22 17:25 Corrected credential orientation after compaction: generic vault item first, workflow binding second, provider driver/template last; Porkbun remains only the current DNS driver for `ouro.bot`
+- 2026-04-22 17:36 Promoted the harness vault item surface fix to first-order scope before mail/DNS implementation

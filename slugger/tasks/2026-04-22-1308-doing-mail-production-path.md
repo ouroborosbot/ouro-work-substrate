@@ -22,6 +22,7 @@ Bring Agent Mail to full production shape across Ouro Work Substrate and the Our
 - [ ] Production setup calls hosted Mail Control, stores one-time private keys in the owning agent vault, configures hosted Blob reader coordinates, enables Mail sense, and reports native plus delegated addresses without printing secrets.
 - [ ] Setup and repair are idempotent across hosted registry, local registry, vault config, source grants, keys, and Blob settings.
 - [ ] Native agent mail and delegated human mailbox source stay separate in protocol records, storage compartments, access tools, Outlook, audit, policy, recovery, and prompt/sense context.
+- [ ] The harness vault surface is corrected before DNS/mail implementation: generic human-facing vault item commands exist, notes are first-class, `ouro connect` remains harness-managed only, and provider-specific helpers such as Porkbun are templates/compatibility paths over ordinary vault items.
 - [ ] DNS provider access is represented as a generic agent-vault credential item plus an explicit workflow binding; the current `ouro.bot` binding can use Porkbun, but DNS automation must not make Porkbun a credential ontology.
 - [ ] Production MX points to a proven port-25 edge with STARTTLS, size limits, transient/permanent failures, rate limits, recipient limits, and body-safe observability.
 - [ ] Native live mail to `slugger@ouro.bot` reaches encrypted Blob storage, decrypts through Slugger's vault key, enters the right Imbox/Screener state, and behaves as a body-safe sense.
@@ -65,6 +66,21 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **What**: Prepare dedicated worktrees/branches for work-substrate and harness, record current dirty-state boundaries, reread foundation task docs, and capture the live baseline for DNS, Azure, GitHub, harness Mail sense, Slugger vault readiness, and deployed services.
 **Output**: Baseline artifact with repo/worktree paths, current commits, live DNS/Azure facts, foundation-doc summary, and immediate blockers.
 **Acceptance**: Baseline proves no user changes were overwritten, names the active remotes/branches, and confirms which human inputs are genuinely missing before implementation begins.
+
+### ⬜ Unit 0a: Harness Vault Item Surface — Tests
+**What**: Write failing harness tests and doc contracts for a generic human-facing vault item surface: hidden secret entry, username/account label, freeform notes, list/status without secret exposure, reserved runtime/config guidance, and provider helper compatibility.
+**Output**: Red CLI/docs tests in the harness worktree.
+**Acceptance**: Tests fail where the only human CLI path for an arbitrary credential is provider-specific or where docs imply ops credentials are a separate ontology.
+
+### ⬜ Unit 0b: Harness Vault Item Surface — Implementation
+**What**: Implement or expose generic `ouro vault item` commands over the existing agent-vault item primitive, with clear item naming, notes, hidden secret prompts, metadata-only status/list, and guardrails around reserved harness-managed items. Keep `vault ops porkbun` as a compatibility/template helper that stores an ordinary vault item and points users toward the generic model.
+**Output**: Harness CLI/code/docs changes, compatibility behavior, and task notes.
+**Acceptance**: A human can store/check a non-runtime credential for Slugger without a provider-specific command; the existing Porkbun credential remains usable as a normal vault item referenced by workflow binding.
+
+### ⬜ Unit 0c: Harness Vault Item Surface — Coverage And Release
+**What**: Cover error paths, noninteractive failures, reserved item collisions, no-secret logging, notes handling, and command-help ergonomics; run harness tests/release preflight, merge/release/install as needed.
+**Output**: Coverage artifacts, PR/release evidence, and updated local installed `ouro`.
+**Acceptance**: 100% coverage on new vault-surface code and future agents see vault item first in help/docs before provider templates.
 
 ### ⬜ Unit 1a: Two-Lane Mail Contract — Tests
 **What**: Write failing tests/contract checks that native agent mail and delegated human mailbox source cannot collapse across protocol, harness types, tools, Outlook labels, prompt/sense summaries, and recovery records.
@@ -192,7 +208,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Acceptance**: A future agent can recover each documented failure mode without rediscovering the system.
 
 ### ⬜ Unit 10: Deploy, Cutover, And Live Smoke
-**What**: Deploy after green CI, run DNS dry-run and apply only after proof, verify MX/STARTTLS, run native inbound/outbound/autonomy tests, run HEY backfill/forwarding tests, inspect Outlook/audit, and merge/release/install as repo workflows require.
+**What**: Deploy after green CI, run DNS dry-run and apply after proof, verify MX/STARTTLS, run native inbound/outbound/autonomy tests, run HEY backfill/forwarding tests, inspect Outlook/audit, and merge/release/install as repo workflows require.
 **Output**: Deployment logs, DNS backup/diff, live smoke artifacts, PR/CI/merge/release evidence, and final installed-state verification.
 **Acceptance**: Full production completion criteria are met; remaining issues are either fixed or documented as explicit follow-up work with owner/removal criteria.
 
@@ -212,3 +228,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 14:34 Fixed unit heading format after template check.
 - 2026-04-22 14:36 Started Unit 0 baseline and worktree setup.
 - 2026-04-22 17:25 Captured post-compaction credential-orientation correction: generic vault item first, workflow binding second, provider template last.
+- 2026-04-22 17:36 Promoted the generic harness vault item surface from documentation debt into first-order Units 0a-0c before DNS/mail implementation.
