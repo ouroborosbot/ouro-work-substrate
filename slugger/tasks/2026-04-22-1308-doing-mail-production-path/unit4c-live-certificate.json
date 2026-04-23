@@ -1,0 +1,72 @@
+{
+  "action": "certificate",
+  "binding": {
+    "workflow": "dns",
+    "domain": "ouro.bot",
+    "driver": "porkbun",
+    "credentialItem": "ops/registrars/porkbun/accounts/ari@mendelow.me",
+    "resources": {
+      "records": [
+        {
+          "type": "A",
+          "name": "mx1"
+        },
+        {
+          "type": "MX",
+          "name": "@"
+        },
+        {
+          "type": "TXT",
+          "name": "@"
+        },
+        {
+          "type": "TXT",
+          "name": "_dmarc"
+        },
+        {
+          "type": "TXT",
+          "name": "_acme-challenge.mx1"
+        }
+      ]
+    },
+    "desired": {
+      "records": [
+        {
+          "type": "A",
+          "name": "mx1",
+          "content": "20.10.114.197",
+          "ttl": 600
+        },
+        {
+          "type": "MX",
+          "name": "@",
+          "content": "mx1.ouro.bot",
+          "ttl": 600,
+          "priority": 10
+        },
+        {
+          "type": "TXT",
+          "name": "_dmarc",
+          "content": "v=DMARC1; p=none; rua=mailto:dmarc@ouro.bot",
+          "ttl": 600
+        }
+      ]
+    },
+    "certificate": {
+      "host": "mx1.ouro.bot",
+      "source": "porkbun-ssl",
+      "storeItem": "runtime/mail/certificates/mx1.ouro.bot",
+      "acmeChallengeRecord": {
+        "type": "TXT",
+        "name": "_acme-challenge.mx1"
+      }
+    }
+  },
+  "certificate": {
+    "host": "mx1.ouro.bot",
+    "storeItem": "runtime/mail/certificates/mx1.ouro.bot",
+    "certificatechain": "-----BEGIN CERTIFICATE-----\n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\n-----END CERTIFICATE-----\n\n-----BEGIN CERTIFICATE-----\nMIIFBTCCAu2gAwIBAgIQWgDyEtjUtIDzkkFX6imDBTANBgkqhkiG9w0BAQsFADBP\nMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJuZXQgU2VjdXJpdHkgUmVzZWFy\nY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBYMTAeFw0yNDAzMTMwMDAwMDBa\nFw0yNzAzMTIyMzU5NTlaMDMxCzAJBgNVBAYTAlVTMRYwFAYDVQQKEw1MZXQncyBF\nbmNyeXB0MQwwCgYDVQQDEwNSMTMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK\nAoIBAQClZ3CN0FaBZBUXYc25BtStGZCMJlA3mBZjklTb2cyEBZPs0+wIG6BgUUNI\nfSvHSJaetC3ancgnO1ehn6vw1g7UDjDKb5ux0daknTI+WE41b0VYaHEX/D7YXYKg\nL7JRbLAaXbhZzjVlyIuhrxA3/+OcXcJJFzT/jCuLjfC8cSyTDB0FxLrHzarJXnzR\nyQH3nAP2/Apd9Np75tt2QnDr9E0i2gB3b9bJXxf92nUupVcM9upctuBzpWjPoXTi\ndYJ+EJ/B9aLrAek4sQpEzNPCifVJNYIKNLMc6YjCR06CDgo28EdPivEpBHXazeGa\nXP9enZiVuppD0EqiFwUBBDDTMrOPAgMBAAGjgfgwgfUwDgYDVR0PAQH/BAQDAgGG\nMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDATASBgNVHRMBAf8ECDAGAQH/\nAgEAMB0GA1UdDgQWBBTnq58PLDOgU9NeT3jIsoQOO9aSMzAfBgNVHSMEGDAWgBR5\ntFnme7bl5AFzgAiIyBpY9umbbjAyBggrBgEFBQcBAQQmMCQwIgYIKwYBBQUHMAKG\nFmh0dHA6Ly94MS5pLmxlbmNyLm9yZy8wEwYDVR0gBAwwCjAIBgZngQwBAgEwJwYD\nVR0fBCAwHjAcoBqgGIYWaHR0cDovL3gxLmMubGVuY3Iub3JnLzANBgkqhkiG9w0B\nAQsFAAOCAgEAUTdYUqEimzW7TbrOypLqCfL7VOwYf/Q79OH5cHLCZeggfQhDconl\nk7Kgh8b0vi+/XuWu7CN8n/UPeg1vo3G+taXirrytthQinAHGwc/UdbOygJa9zuBc\nVyqoH3CXTXDInT+8a+c3aEVMJ2St+pSn4ed+WkDp8ijsijvEyFwE47hulW0Ltzjg\n9fOV5Pmrg/zxWbRuL+k0DBDHEJennCsAen7c35Pmx7jpmJ/HtgRhcnz0yjSBvyIw\n6L1QIupkCv2SBODT/xDD3gfQQyKv6roV4G2EhfEyAsWpmojxjCUCGiyg97FvDtm/\nNK2LSc9lybKxB73I2+P2G3CaWpvvpAiHCVu30jW8GCxKdfhsXtnIy2imskQqVZ2m\n0Pmxobb28Tucr7xBK7CtwvPrb79os7u2XP3O5f9b/H66GNyRrglRXlrYjI1oGYL/\nf4I1n/Sgusda6WvA6C190kxjU15Y12mHU4+BxyR9cx2hhGS9fAjMZKJss28qxvz6\nAxu4CaDmRNZpK/pQrXF17yXCXkmEWgvSOEZy6Z9pcbLIVEGckV/iVeq0AOo2pkg9\np4QRIy0tK2diRENLSF2KysFwbY6B26BFeFs3v1sYVRhFW9nLkOrQVporCS0KyZmf\nwVD89qSTlnctLcZnIavjKsKUu1nA1iU0yYMdYepKR7lWbnwhdx3ewok=\n-----END CERTIFICATE-----",
+    "publickey": "-----BEGIN PUBLIC KEY-----\nMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAwtOlTQ0dRIwbY+9nIU1u\nd2OKp3vZzMXoioc1b9dZSI4lcAdqaAkKRHCmqMtmjRB0y4GMnB4a+Ql2d6WhxbUk\n3PFkD65/TtX5NHOPl8Jm2PY4e9CmsTn1gq5Ygg9Z2zt67DGbffeTpgSKetFxc+m2\n3PRKaw4B0aUnBvfe41aNsQVbhW+Fs1wjdR3SJm42Mzste6bYff+Vs8EJC28AGoow\n8k4O8oIwiJ6gVq5QMk9JxALdDh9hcoKo3IZh2zRhwmgivYd8SnOVp5oOWpXN3gNr\nXyNq+zltOp90jp01KkoANtgDWSxhtLOTVt5gPtEo61H08jf/mb0ky0X53lxPEStU\nlgfJhL6E0UvVoLGDA0c+rjeEbXwkiaQRnN0PJKwRG8t4wB4bhOBBzjdHlDXcMzXB\nfqcsw7eGG5HwtS+0fbK8QGNHA/DfHET7MqnuZecG8w9dBi0Rw24AKIQM1DijuqSP\n2CI7BTt/9NAFgFK+Yoj6Mz5le9E2pBYvXaDN6jXpUhVOec4830uoHtkK+50Kqp17\nmYln0ITldh6gy+3Db/YlywlGWT6i1jbGTmPxCsO5LqAbvfyDo2mL2gqrttU6+sAS\nU/1MCHSln1K0j1ldSn24VCFCdczl8saA0xO0o8h2ewuI2kPAH6Qu85G/AKg5byW1\nyd5JGV8zwW32yEWXdlLoXD0CAwEAAQ==\n-----END PUBLIC KEY-----",
+    "privatekey": "[redacted]"
+  }
+}

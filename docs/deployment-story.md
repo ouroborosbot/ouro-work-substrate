@@ -10,9 +10,9 @@ This doc is the memory of how the deploy story changed. Keep it honest. A future
 - The Ouroboros harness still owns local setup commands, the Mail sense, bounded mail tools, local development stores, and Ouro Outlook.
 - Azure proof deployment is live from this repo.
 - Runtime, infrastructure, and workflow changes on `main` deploy automatically after green CI through GitHub OIDC; docs-only changes skip Azure rollout.
-- Mail proof SMTP is on port `2525`.
+- Mail Ingress listens on internal target port `2525` and is exposed on public SMTP port `25`.
 - Mail Ingress code and deploy templates support STARTTLS from mounted PEM secrets, SMTP `SIZE`, connection/rate limits, recipient transaction limits, unknown-recipient rejection, and body-safe transient failure logging.
-- Production DNS/MX cutover has not happened.
+- Production DNS/MX for `ouro.bot` points at `mx1.ouro.bot`.
 - Autonomous sending is not enabled.
 
 ## What CI Must Prove
@@ -54,7 +54,7 @@ Status: complete. The live proof verified native `slugger@ouro.bot` mail to Scre
 
 Decide whether Azure Container Apps can support the final production MX path on port `25`. If not, keep Container Apps for control/services and add a small Azure mail edge for SMTP ingress.
 
-Status: open. The app path is being hardened for production SMTP, but do not publish production MX until a live port-25 proof shows the edge can accept real MX traffic with STARTTLS and body-safe observability.
+Status: complete for the Container Apps edge decision. The app is deployed with public port `25` mapped to target port `2525`, TLS secrets mounted, STARTTLS verified on the app path, DNS/MX cut over to `mx1.ouro.bot`, and external TCP reachability confirmed from multiple check-host nodes. A local direct port-25 SMTP transcript may fail from networks that block outbound SMTP; use real mailbox-provider sends for the next delivery proof.
 
 ### Phase 4: Deployment Automation
 
@@ -66,9 +66,9 @@ Manual deployment remains available for token rotation, repairs, and proof-port 
 
 ### Phase 5: Production Mail Edge
 
-Phase 5 is the real inbound mail decision: production MX, port `25`, DNS, HEY forwarding, and operational monitoring.
+Phase 5 is the real mail-delivery proof: native provider delivery to `slugger@ouro.bot`, delegated HEY forwarding/export, outbound provider sending, delivery events, and operational monitoring.
 
-Status: gated on live proof, not a separate approval ceremony. This may require a dedicated Azure mail edge if Container Apps is not the right final SMTP endpoint. The current deploy lane keeps hosted services as private commit-addressed Docker images built by GitHub Actions and applied through Bicep; these services are not published as npm packages.
+Status: gated on live provider-level smoke, not a separate approval ceremony. The current deploy lane keeps hosted services as private commit-addressed Docker images built by GitHub Actions and applied through Bicep; these services are not published as npm packages.
 
 ## Branch Protection
 
@@ -86,4 +86,4 @@ Slugger local testing can resume before auto-deployment. These are not blocked b
 - Screener decisions.
 - Ouro Outlook audit.
 
-Live inbound forwarding to `@ouro.bot` should wait for the production ingress decision and explicit human action.
+Live inbound forwarding to `@ouro.bot` should use the proven public edge, but HEY browser auth/MFA/export/forwarding confirmation and any live mail sent from a human-controlled account remain explicit human actions.

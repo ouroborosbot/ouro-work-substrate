@@ -34,12 +34,13 @@ Native agent mail, such as `slugger@ouro.bot`, starts in Screener. Delegated hum
 The current Azure production proof is live on Container Apps:
 
 - Mail Control: authenticated HTTP control plane.
-- Mail Ingress: HTTP health plus proof SMTP TCP ingress on port `2525`.
+- Mail Ingress: HTTP health plus production SMTP TCP ingress on public port `25`, mapped to the app's internal SMTP target port `2525`.
 - Vault Control: authenticated Vaultwarden account creation control plane.
 - Storage: Azure Blob Storage with encrypted mail records.
+- DNS: `ouro.bot` MX points at `mx1.ouro.bot`, which resolves to the Container Apps environment static IP.
 - Deploys: runtime, infrastructure, and workflow changes on `main` deploy automatically after green CI through GitHub OIDC. Docs-only changes pass CI but skip Azure rollout.
 
-Production MX/DNS cutover, HEY forwarding/export, browser auth/MFA, and autonomous sending remain explicit human-at-keyboard gates.
+HEY forwarding/export, browser auth/MFA, human-controlled live mail sends, and autonomous sending remain explicit human-at-keyboard gates.
 
 ## First Commands
 

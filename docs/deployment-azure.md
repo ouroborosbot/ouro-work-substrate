@@ -18,7 +18,7 @@ Mail Ingress exposes HTTP health on the app's primary HTTP ingress and SMTP as a
 
 External TCP ingress also requires a Container Apps environment using a virtual network, so the template creates a delegated Container Apps subnet.
 
-The current proof port is `2525`. Do not switch to port `25` or publish MX records until the production ingress decision is explicitly confirmed.
+The current production shape exposes public SMTP port `25` as an additional TCP mapping to the app's internal SMTP target port `2525`. The `AZURE_MAIL_EXPOSED_SMTP_PORT` repository variable can still be set to a nonstandard proof port for diagnostics, but MX records must only point at a port-25 edge.
 
 Mail Ingress can advertise SMTP `STARTTLS` when the deploy workflow receives both PEM secrets:
 
@@ -46,7 +46,7 @@ gh secret set MAIL_CONTROL_ADMIN_TOKEN --repo ouroborosbot/ouro-work-substrate
 gh secret set VAULT_CONTROL_ADMIN_TOKEN --repo ouroborosbot/ouro-work-substrate
 ```
 
-Set `MAIL_INGRESS_TLS_KEY` and `MAIL_INGRESS_TLS_CERT` before any production MX proof. They are optional only for local/proof deployments that intentionally keep STARTTLS disabled.
+Set `MAIL_INGRESS_TLS_KEY` and `MAIL_INGRESS_TLS_CERT` before any production MX proof. They are optional only for local/proof deployments that intentionally keep STARTTLS disabled. The current production deployment has both set from the workflow-managed certificate vault item.
 
 After that, runtime, infrastructure, and workflow changes merged to `main` deploy automatically after green CI. Docs-only changes pass CI and skip Azure rollout.
 
@@ -71,6 +71,6 @@ The environment subject is required because the deploy workflow uses a GitHub En
 
 ## DNS
 
-For production mail, point the relevant MX record at the Container Apps environment endpoint only after a live ingress proof and operator acceptance for this private rollout. HEY forwarding/catch-all setup remains human-at-keyboard.
+For production mail, point or repoint the relevant MX record at the Container Apps environment endpoint only after a live ingress proof for the target edge. The current `ouro.bot` MX points at `mx1.ouro.bot`, and `mx1.ouro.bot` resolves to the Container Apps environment static IP.
 
-Until then, use the proof SMTP port and direct test sends. The system should prove mail routing, encrypted storage, and agent-side decryption before real inbound mail depends on it.
+For provider-level smoke tests, use real mailbox-provider sends to the public MX; local machines and many clouds often block outbound port `25`, so local direct SMTP probes are not sufficient proof either way. HEY forwarding/catch-all setup remains human-at-keyboard.

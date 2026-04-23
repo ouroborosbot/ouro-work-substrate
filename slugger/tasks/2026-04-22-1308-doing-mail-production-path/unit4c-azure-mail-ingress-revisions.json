@@ -1,0 +1,113 @@
+[
+  {
+    "id": "/subscriptions/261e0bf1-934d-41ab-9295-229b0d254418/resourceGroups/rg-ouro-work-substrate/providers/Microsoft.App/containerApps/ouro-prod-mail-ingress/revisions/ouro-prod-mail-ingress--0000007",
+    "name": "ouro-prod-mail-ingress--0000007",
+    "properties": {
+      "active": true,
+      "createdTime": "2026-04-23T04:57:59+00:00",
+      "fqdn": "ouro-prod-mail-ingress--0000007.blueflower-44af4710.eastus2.azurecontainerapps.io",
+      "healthState": "Healthy",
+      "provisioningState": "Provisioned",
+      "replicas": 1,
+      "runningState": "Running",
+      "template": {
+        "containers": [
+          {
+            "args": [
+              "--registry-azure-account-url",
+              "https://ouroprodpe5nvwd7rt3r4.blob.core.windows.net",
+              "--registry-container",
+              "mailroom",
+              "--registry-blob",
+              "registry/mailroom.json",
+              "--registry-domain",
+              "ouro.bot",
+              "--azure-account-url",
+              "https://ouroprodpe5nvwd7rt3r4.blob.core.windows.net",
+              "--azure-managed-identity-client-id",
+              "86013849-2d05-4df1-99f3-d4e2e047d1b9",
+              "--smtp-port",
+              "2525",
+              "--http-port",
+              "8080",
+              "--max-recipients",
+              "100",
+              "--max-connections",
+              "100",
+              "--connection-rate-limit-max",
+              "120",
+              "--connection-rate-limit-window-ms",
+              "60000",
+              "--tls-key-file",
+              "/mnt/secrets/mail-ingress-tls-key",
+              "--tls-cert-file",
+              "/mnt/secrets/mail-ingress-tls-cert"
+            ],
+            "image": "ouroworkprodk2aumligevt3e.azurecr.io/ouro-mail-ingress:d07449d811d04dd037b85f407a87c754c783f84c",
+            "name": "mail-ingress",
+            "probes": [
+              {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8080
+                },
+                "initialDelaySeconds": 30,
+                "periodSeconds": 30,
+                "type": "Liveness"
+              },
+              {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8080
+                },
+                "initialDelaySeconds": 5,
+                "periodSeconds": 15,
+                "type": "Readiness"
+              }
+            ],
+            "resources": {
+              "cpu": 0.5,
+              "memory": "1Gi"
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/mnt/secrets",
+                "volumeName": "mail-ingress-tls"
+              }
+            ]
+          }
+        ],
+        "initContainers": null,
+        "revisionSuffix": null,
+        "scale": {
+          "cooldownPeriod": null,
+          "maxReplicas": 5,
+          "minReplicas": 1,
+          "pollingInterval": null,
+          "rules": null
+        },
+        "serviceBinds": null,
+        "terminationGracePeriodSeconds": null,
+        "volumes": [
+          {
+            "name": "mail-ingress-tls",
+            "secrets": [
+              {
+                "path": "mail-ingress-tls-key",
+                "secretRef": "mail-ingress-tls-key"
+              },
+              {
+                "path": "mail-ingress-tls-cert",
+                "secretRef": "mail-ingress-tls-cert"
+              }
+            ],
+            "storageType": "Secret"
+          }
+        ]
+      },
+      "trafficWeight": 100
+    },
+    "resourceGroup": "rg-ouro-work-substrate",
+    "type": "Microsoft.App/containerapps/revisions"
+  }
+]
