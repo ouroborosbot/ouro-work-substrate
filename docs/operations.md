@@ -84,6 +84,28 @@ gh workflow run deploy-azure.yml --repo ouroborosbot/ouro-work-substrate
 
 The deployment is serialized per environment so only one production rollout runs at a time. Prefer this workflow over local one-off deploys; the workflow is the paved path.
 
+## DNS Workflow Binding
+
+DNS changes for production mail are run from explicit non-secret workflow binding files. A binding names the `domain`, the provider `driver`, the `credentialItem` path in the owning agent vault, a resource allowlist, desired records, certificate handling, and where to write audit artifacts. It is run config, not a new secret category.
+
+For `ouro.bot`, the binding lives at:
+
+```bash
+infra/dns/ouro.bot.binding.json
+```
+
+Porkbun is the current `ouro.bot` DNS driver. The referenced vault item is an ordinary vault item / credential with no assumed use. Notes are for humans and agents; code must not parse notes. If the workflow needs machine-readable facts, those facts belong in the binding fields.
+
+Safe DNS work follows this order:
+
+1. `backup`: retrieve current records and write a current-record backup before mutation.
+2. `plan`: produce a dry-run diff from current records to desired records, preserving anything outside the resource allowlist.
+3. `apply`: make the reviewed allowlisted changes only.
+4. `verify`: re-read provider records and public DNS until the expected records appear or propagation is still pending.
+5. `rollback`: restore allowlisted records from a recorded backup when a change is wrong.
+
+Do not edit records outside the binding allowlist during this workflow. Preserve Microsoft, Google, and other third-party verification records unless a later binding intentionally manages them. Artifacts may include record names, types, TTLs, provider ids, and public certificate chains; they must never include provider keys, secret headers, certificate private keys, raw email bodies, or vault unlock material.
+
 ## Smoke Test
 
 Run this after a meaningful deployment. Do not skip the encryption/decryption proof when mail code or infra changed.
@@ -148,10 +170,10 @@ Before raising replica caps, check:
 
 These are not chores for an agent to quietly complete. They require explicit human action:
 
-- DNS/MX changes.
+- Domain/API access enablement and any provider portal confirmation that cannot be completed through the approved workflow.
 - HEY export and forwarding setup.
 - Browser auth and MFA.
-- Production MX cutover.
+- Production MX cutover when the target edge has not yet been proven.
 - Autonomous sending.
 
 ## If Something Feels Weird

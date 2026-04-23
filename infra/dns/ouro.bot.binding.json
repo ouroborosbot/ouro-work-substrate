@@ -1,0 +1,62 @@
+{
+  "workflow": "dns",
+  "domain": "ouro.bot",
+  "driver": "porkbun",
+  "credentialItem": "ops/registrars/porkbun/accounts/ari@mendelow.me",
+  "resources": {
+    "records": [
+      {
+        "type": "A",
+        "name": "mx1"
+      },
+      {
+        "type": "MX",
+        "name": "@"
+      },
+      {
+        "type": "TXT",
+        "name": "@"
+      },
+      {
+        "type": "TXT",
+        "name": "_dmarc"
+      },
+      {
+        "type": "TXT",
+        "name": "_acme-challenge.mx1"
+      }
+    ]
+  },
+  "desired": {
+    "records": [
+      {
+        "type": "A",
+        "name": "mx1",
+        "content": "20.10.114.197",
+        "ttl": 600
+      },
+      {
+        "type": "MX",
+        "name": "@",
+        "content": "mx1.ouro.bot",
+        "priority": 10,
+        "ttl": 600
+      },
+      {
+        "type": "TXT",
+        "name": "_dmarc",
+        "content": "v=DMARC1; p=none; rua=mailto:dmarc@ouro.bot",
+        "ttl": 600
+      }
+    ]
+  },
+  "certificate": {
+    "host": "mx1.ouro.bot",
+    "source": "porkbun-ssl",
+    "storeItem": "runtime/mail/certificates/mx1.ouro.bot",
+    "acmeChallengeRecord": {
+      "type": "TXT",
+      "name": "_acme-challenge.mx1"
+    }
+  }
+}

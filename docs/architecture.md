@@ -42,6 +42,12 @@ The local Ouroboros harness may keep development stores, mail readers, setup orc
 - Discard means "move to a recoverable drawer", not reject or bounce.
 - Vault account creation is authenticated, rate-limited, domain-limited, and designed to avoid logging secrets.
 
+## Vault Items And Workflow Bindings
+
+The generic secret primitive is a vault item / credential: a private record in the owning agent vault with hidden secret material, optional public fields, notes, organization, timestamps, provenance, and no assumed use.
+
+Hosted and harness workflows use workflow binding files when they need machine-readable run config. A binding can reference an ordinary vault item by path and state how one workflow will use it. That reference does not change what the item is. Notes remain orientation for humans and agents; structured workflow facts belong in the binding.
+
 ## Mail Control
 
 `apps/mail-control` is the scalable mailbox onboarding path. It owns no durable private keys.
