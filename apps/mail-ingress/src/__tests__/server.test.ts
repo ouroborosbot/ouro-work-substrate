@@ -12,6 +12,9 @@ import { StaticRegistryProvider } from "../registry"
 type SmtpProductionOptions = MailIngressOptions & {
   tls?: { key: string; cert: string }
   maxRecipients?: number
+  maxConnections?: number
+  connectionRateLimitMax?: number
+  connectionRateLimitWindowMs?: number
 }
 
 const defaultTlsOptions = require("smtp-server/lib/tls-options") as () => { key: string; cert: string }
@@ -38,7 +41,7 @@ function closeSmtp(server: { close(callback: () => void): void }): Promise<void>
   return new Promise((resolve) => server.close(resolve))
 }
 
-async function smtpExchange(port: number, steps: Array<{ send: string; expect: RegExp }>): Promise<string> {
+async function smtpExchange(port: number, steps: Array<{ send: string; expect: RegExp }>, initialExpect: RegExp = /^220/m): Promise<string> {
   const socket = net.createConnection({ host: "127.0.0.1", port })
   let transcript = ""
   socket.on("data", (chunk) => {
@@ -58,7 +61,7 @@ async function smtpExchange(port: number, steps: Array<{ send: string; expect: R
       check()
     })
   }
-  await waitFor(/^220/m)
+  await waitFor(initialExpect)
   for (const step of steps) {
     const startAt = transcript.length
     socket.write(step.send)
@@ -66,6 +69,27 @@ async function smtpExchange(port: number, steps: Array<{ send: string; expect: R
   }
   socket.end()
   return transcript
+}
+
+function openSmtpSocket(port: number, initialExpect: RegExp = /^220/m): Promise<{ socket: net.Socket; transcript: () => string }> {
+  const socket = net.createConnection({ host: "127.0.0.1", port })
+  let transcript = ""
+  socket.on("data", (chunk) => {
+    transcript += chunk.toString("utf-8")
+  })
+  return new Promise((resolve, reject) => {
+    const deadline = setTimeout(() => reject(new Error(`Timed out waiting for ${initialExpect}; transcript: ${transcript}`)), 1500)
+    const check = () => {
+      if (initialExpect.test(transcript)) {
+        clearTimeout(deadline)
+        socket.off("data", check)
+        resolve({ socket, transcript: () => transcript })
+      }
+    }
+    socket.on("data", check)
+    socket.on("error", reject)
+    check()
+  })
 }
 
 describe("mail ingress server", () => {
@@ -241,7 +265,7 @@ describe("mail ingress server", () => {
         { send: "QUIT\r\n", expect: /^221/m },
       ])
       expect(transcript).toMatch(/^250-STARTTLS/m)
-      expect(transcript).toMatch(/^250-SIZE 64/m)
+      expect(transcript).toMatch(/^250[ -]SIZE 64/m)
       expect(transcript).not.toMatch(/^250-AUTH/m)
     } finally {
       await closeSmtp(server)
@@ -293,6 +317,74 @@ describe("mail ingress server", () => {
     }
   })
 
+  it("limits concurrent SMTP connections", async () => {
+    const registry = ensureMailboxRegistry({ agentId: "slugger" }).registry
+    const server = createMailIngressSmtpServer({
+      registryProvider: new StaticRegistryProvider(registry),
+      store: new FileMailroomStore(fs.mkdtempSync(path.join(os.tmpdir(), "ouro-smtp-connection-limit-"))),
+      maxConnections: 1,
+      tls: defaultTlsOptions(),
+    } satisfies SmtpProductionOptions)
+    const port = await listenSmtp(server)
+    let first: { socket: net.Socket; transcript: () => string } | undefined
+    try {
+      first = await openSmtpSocket(port)
+      const second = await openSmtpSocket(port, /^421/m)
+      expect(second.transcript()).toContain("Too many connected clients")
+      second.socket.destroy()
+    } finally {
+      first?.socket.destroy()
+      await closeSmtp(server)
+    }
+  })
+
+  it("rate-limits repeated SMTP connections by remote address", async () => {
+    const registry = ensureMailboxRegistry({ agentId: "slugger" }).registry
+    const server = createMailIngressSmtpServer({
+      registryProvider: new StaticRegistryProvider(registry),
+      store: new FileMailroomStore(fs.mkdtempSync(path.join(os.tmpdir(), "ouro-smtp-rate-limit-"))),
+      connectionRateLimitMax: 1,
+      connectionRateLimitWindowMs: 60_000,
+      tls: defaultTlsOptions(),
+    } satisfies SmtpProductionOptions)
+    const port = await listenSmtp(server)
+    try {
+      await smtpExchange(port, [
+        { send: "QUIT\r\n", expect: /^221/m },
+      ])
+      const transcript = await smtpExchange(port, [], /^421/m)
+      expect(transcript).toContain("too many connection attempts")
+    } finally {
+      await closeSmtp(server)
+    }
+  })
+
+  it("keeps handler fallbacks safe when smtp-server omits session details", async () => {
+    const registry = ensureMailboxRegistry({ agentId: "slugger" }).registry
+    const server = createMailIngressSmtpServer({
+      registryProvider: new StaticRegistryProvider(registry),
+      store: new FileMailroomStore(fs.mkdtempSync(path.join(os.tmpdir(), "ouro-smtp-handler-fallbacks-"))),
+      connectionRateLimitMax: 2,
+      tls: defaultTlsOptions(),
+    } satisfies SmtpProductionOptions)
+    const connectError = await new Promise<Error | undefined>((resolve) => {
+      server.options.onConnect?.(
+        { id: "connect-fallback", remoteAddress: "" } as any,
+        (error) => resolve(error ?? undefined),
+      )
+    })
+    expect(connectError).toBeUndefined()
+
+    const rcptError = await new Promise<Error | undefined>((resolve) => {
+      server.options.onRcptTo?.(
+        { address: "slugger@ouro.bot", args: {} },
+        { id: "rcpt-fallback", envelope: { rcptTo: [] } } as any,
+        (error) => resolve(error ?? undefined),
+      )
+    })
+    expect(rcptError).toBeUndefined()
+  })
+
   it("rejects unknown SMTP recipients", async () => {
     const registry = ensureMailboxRegistry({ agentId: "slugger" }).registry
     const server = createMailIngressSmtpServer({
@@ -331,7 +423,8 @@ describe("mail ingress server", () => {
         { send: "RCPT TO:<slugger@ouro.bot>\r\n", expect: /^[45]\d\d/m },
         { send: "QUIT\r\n", expect: /^221/m },
       ])
-      expect(transcript).toContain("registry failed")
+      expect(transcript).toContain("temporary recipient validation failure")
+      expect(transcript).not.toContain("registry failed")
     } finally {
       await closeSmtp(rejectingRcpt)
     }
@@ -352,7 +445,8 @@ describe("mail ingress server", () => {
         { send: "RCPT TO:<slugger@ouro.bot>\r\n", expect: /^[45]\d\d/m },
         { send: "QUIT\r\n", expect: /^221/m },
       ])
-      expect(transcript).toContain("registry exploded")
+      expect(transcript).toContain("temporary recipient validation failure")
+      expect(transcript).not.toContain("registry exploded")
     } finally {
       await closeSmtp(errorRcpt)
     }
@@ -402,7 +496,8 @@ describe("mail ingress server", () => {
         { send: "From: ari@mendelow.me\r\nTo: slugger@ouro.bot\r\nSubject: Hi\r\n\r\nHi\r\n.\r\n", expect: /^[45]\d\d/m },
         { send: "QUIT\r\n", expect: /^221/m },
       ])
-      expect(transcript).toContain("store failed")
+      expect(transcript).toContain("temporary mail ingestion failure")
+      expect(transcript).not.toContain("store failed")
     } finally {
       await closeSmtp(server)
     }

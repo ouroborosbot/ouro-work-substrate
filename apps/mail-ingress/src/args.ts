@@ -17,6 +17,12 @@ export interface MailIngressArgs {
   httpPort: number
   host: string
   maxMessageBytes: number
+  maxRecipients: number
+  maxConnections: number
+  connectionRateLimitMax: number
+  connectionRateLimitWindowMs: number
+  tlsKeyFile?: string
+  tlsCertFile?: string
 }
 
 const KEY_VALUE_ARGS = new Map([
@@ -35,6 +41,12 @@ const KEY_VALUE_ARGS = new Map([
   ["http-port", "--http-port"],
   ["host", "--host"],
   ["max-message-bytes", "--max-message-bytes"],
+  ["max-recipients", "--max-recipients"],
+  ["max-connections", "--max-connections"],
+  ["connection-rate-limit-max", "--connection-rate-limit-max"],
+  ["connection-rate-limit-window-ms", "--connection-rate-limit-window-ms"],
+  ["tls-key-file", "--tls-key-file"],
+  ["tls-cert-file", "--tls-cert-file"],
 ])
 
 function expandKeyValueArgs(args: string[]): string[] {
@@ -88,6 +100,19 @@ export function parseMailIngressArgs(args: string[]): MailIngressArgs {
   if (!registryPath && !registryBase64 && !registryAzureAccountUrl) {
     throw new Error("Missing --registry, --registry-base64, or --registry-azure-account-url")
   }
+  const tlsKeyFile = optionalValue(expanded, "--tls-key-file")
+  const tlsCertFile = optionalValue(expanded, "--tls-cert-file")
+  if ((tlsKeyFile && !tlsCertFile) || (!tlsKeyFile && tlsCertFile)) {
+    throw new Error("--tls-key-file and --tls-cert-file must be provided together")
+  }
+  const maxRecipients = optionalNumber(expanded, "--max-recipients", 100)
+  if (maxRecipients < 1) throw new Error("--max-recipients must be a positive integer")
+  const maxConnections = optionalNumber(expanded, "--max-connections", 100)
+  if (maxConnections < 1) throw new Error("--max-connections must be a positive integer")
+  const connectionRateLimitMax = optionalNumber(expanded, "--connection-rate-limit-max", 120)
+  if (connectionRateLimitMax < 1) throw new Error("--connection-rate-limit-max must be a positive integer")
+  const connectionRateLimitWindowMs = optionalNumber(expanded, "--connection-rate-limit-window-ms", 60_000)
+  if (connectionRateLimitWindowMs < 1) throw new Error("--connection-rate-limit-window-ms must be a positive integer")
   return {
     ...(registryPath ? { registryPath } : {}),
     ...(registryBase64 ? { registryBase64 } : {}),
@@ -106,6 +131,12 @@ export function parseMailIngressArgs(args: string[]): MailIngressArgs {
     httpPort: optionalPort(expanded, "--http-port", 8080),
     host: optionalValue(expanded, "--host") ?? "0.0.0.0",
     maxMessageBytes: optionalNumber(expanded, "--max-message-bytes", 25 * 1024 * 1024),
+    maxRecipients,
+    maxConnections,
+    connectionRateLimitMax,
+    connectionRateLimitWindowMs,
+    ...(tlsKeyFile ? { tlsKeyFile } : {}),
+    ...(tlsCertFile ? { tlsCertFile } : {}),
   }
 }
 

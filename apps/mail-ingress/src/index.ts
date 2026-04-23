@@ -1,3 +1,4 @@
+import * as fs from "node:fs"
 import { BlobServiceClient } from "@azure/storage-blob"
 import { DefaultAzureCredential } from "@azure/identity"
 import { parseMailIngressArgs, readRegistry } from "./args"
@@ -17,6 +18,14 @@ function createStore(parsed: ReturnType<typeof parseMailIngressArgs>): MailroomS
     )
   }
   return new FileMailroomStore(parsed.storePath!)
+}
+
+function createTlsOptions(parsed: ReturnType<typeof parseMailIngressArgs>): { key: Buffer; cert: Buffer } | undefined {
+  if (!parsed.tlsKeyFile || !parsed.tlsCertFile) return undefined
+  return {
+    key: fs.readFileSync(parsed.tlsKeyFile),
+    cert: fs.readFileSync(parsed.tlsCertFile),
+  }
 }
 
 function createRegistryProvider(parsed: ReturnType<typeof parseMailIngressArgs>): MailroomRegistryProvider {
@@ -39,6 +48,7 @@ function createRegistryProvider(parsed: ReturnType<typeof parseMailIngressArgs>)
 
 export function runMailIngress(args: string[] = process.argv.slice(2)): MailIngressServers {
   const parsed = parseMailIngressArgs(args)
+  const tls = createTlsOptions(parsed)
   const servers = startMailIngress({
     registryProvider: createRegistryProvider(parsed),
     store: createStore(parsed),
@@ -46,6 +56,11 @@ export function runMailIngress(args: string[] = process.argv.slice(2)): MailIngr
     httpPort: parsed.httpPort,
     host: parsed.host,
     maxMessageBytes: parsed.maxMessageBytes,
+    maxRecipients: parsed.maxRecipients,
+    maxConnections: parsed.maxConnections,
+    connectionRateLimitMax: parsed.connectionRateLimitMax,
+    connectionRateLimitWindowMs: parsed.connectionRateLimitWindowMs,
+    ...(tls ? { tls } : {}),
   })
   logEvent({
     component: "mail-ingress",

@@ -35,6 +35,12 @@ describe("mail ingress args", () => {
       "http-port=8082",
       "registry-domain=OURO.BOT",
       "max-message-bytes=1024",
+      "max-recipients=50",
+      "max-connections=25",
+      "connection-rate-limit-max=40",
+      "connection-rate-limit-window-ms=30000",
+      "tls-key-file=/mnt/secrets/tls.key",
+      "tls-cert-file=/mnt/secrets/tls.crt",
       "ignored=value",
     ])
 
@@ -46,6 +52,12 @@ describe("mail ingress args", () => {
     expect(parsed.httpPort).toBe(8082)
     expect(parsed.registryDomain).toBe("OURO.BOT")
     expect(parsed.maxMessageBytes).toBe(1024)
+    expect(parsed.maxRecipients).toBe(50)
+    expect(parsed.maxConnections).toBe(25)
+    expect(parsed.connectionRateLimitMax).toBe(40)
+    expect(parsed.connectionRateLimitWindowMs).toBe(30000)
+    expect(parsed.tlsKeyFile).toBe("/mnt/secrets/tls.key")
+    expect(parsed.tlsCertFile).toBe("/mnt/secrets/tls.crt")
   })
 
   it("reads registry JSON from file or base64", () => {
@@ -84,6 +96,31 @@ describe("mail ingress args", () => {
       "--store", "/tmp/mail",
       "--smtp-port",
     ])).toThrow("--smtp-port must be a non-negative integer")
+    expect(() => parseMailIngressArgs([
+      "--registry", "/tmp/registry.json",
+      "--store", "/tmp/mail",
+      "--tls-key-file", "/tmp/tls.key",
+    ])).toThrow("--tls-key-file and --tls-cert-file must be provided together")
+    expect(() => parseMailIngressArgs([
+      "--registry", "/tmp/registry.json",
+      "--store", "/tmp/mail",
+      "--max-recipients", "0",
+    ])).toThrow("--max-recipients must be a positive integer")
+    expect(() => parseMailIngressArgs([
+      "--registry", "/tmp/registry.json",
+      "--store", "/tmp/mail",
+      "--max-connections", "0",
+    ])).toThrow("--max-connections must be a positive integer")
+    expect(() => parseMailIngressArgs([
+      "--registry", "/tmp/registry.json",
+      "--store", "/tmp/mail",
+      "--connection-rate-limit-max", "0",
+    ])).toThrow("--connection-rate-limit-max must be a positive integer")
+    expect(() => parseMailIngressArgs([
+      "--registry", "/tmp/registry.json",
+      "--store", "/tmp/mail",
+      "--connection-rate-limit-window-ms", "0",
+    ])).toThrow("--connection-rate-limit-window-ms must be a positive integer")
     expect(() => readRegistry({})).toThrow("Missing registry path")
   })
 

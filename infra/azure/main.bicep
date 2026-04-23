@@ -61,10 +61,68 @@ param mailIngressMinReplicas int = 1
 @minValue(1)
 param mailIngressMaxReplicas int = 5
 
+@description('Maximum accepted recipients in one SMTP transaction.')
+@minValue(1)
+param mailIngressMaxRecipients int = 100
+
+@description('Maximum concurrent SMTP clients accepted by one mail-ingress replica.')
+@minValue(1)
+param mailIngressMaxConnections int = 100
+
+@description('Maximum SMTP connection attempts from one remote address inside the rate-limit window.')
+@minValue(1)
+param mailIngressConnectionRateLimitMax int = 120
+
+@description('SMTP connection rate-limit window in milliseconds.')
+@minValue(1)
+param mailIngressConnectionRateLimitWindowMs int = 60000
+
+@description('PEM TLS private key used by mail-ingress STARTTLS. Leave empty to keep STARTTLS disabled.')
+@secure()
+param mailIngressTlsKey string = ''
+
+@description('PEM TLS certificate chain used by mail-ingress STARTTLS. Leave empty to keep STARTTLS disabled.')
+@secure()
+param mailIngressTlsCert string = ''
+
 var prefix = 'ouro-${environmentName}'
 var storageName = toLower(replace('${prefix}${uniqueString(resourceGroup().id)}', '-', ''))
 var blobContributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
 var acrPullRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
+var mailIngressTlsEnabled = !empty(mailIngressTlsKey) && !empty(mailIngressTlsCert)
+var mailIngressBaseArgs = [
+  '--registry-azure-account-url'
+  'https://${storageName}.blob.${az.environment().suffixes.storage}'
+  '--registry-container'
+  mailContainerName
+  '--registry-blob'
+  mailRegistryBlob
+  '--registry-domain'
+  mailDomain
+  '--azure-account-url'
+  'https://${storageName}.blob.${az.environment().suffixes.storage}'
+  '--azure-managed-identity-client-id'
+  identity.properties.clientId
+  '--smtp-port'
+  string(mailSmtpPort)
+  '--http-port'
+  string(mailHttpPort)
+  '--max-recipients'
+  string(mailIngressMaxRecipients)
+  '--max-connections'
+  string(mailIngressMaxConnections)
+  '--connection-rate-limit-max'
+  string(mailIngressConnectionRateLimitMax)
+  '--connection-rate-limit-window-ms'
+  string(mailIngressConnectionRateLimitWindowMs)
+]
+var mailIngressTlsArgs = mailIngressTlsEnabled ? [
+  '--tls-key-file'
+  '/mnt/secrets/mail-ingress-tls-key'
+  '--tls-cert-file'
+  '/mnt/secrets/mail-ingress-tls-cert'
+] : []
+var mailIngressArgs = concat(mailIngressBaseArgs, mailIngressTlsArgs)
 
 resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   name: containerRegistryName
@@ -208,6 +266,16 @@ resource mailIngress 'Microsoft.App/containerApps@2024-03-01' = {
           identity: identity.id
         }
       ]
+      secrets: mailIngressTlsEnabled ? [
+        {
+          name: 'mail-ingress-tls-key'
+          value: mailIngressTlsKey
+        }
+        {
+          name: 'mail-ingress-tls-cert'
+          value: mailIngressTlsCert
+        }
+      ] : []
       ingress: {
         external: true
         transport: 'http'
@@ -233,28 +301,17 @@ resource mailIngress 'Microsoft.App/containerApps@2024-03-01' = {
         {
           name: 'mail-ingress'
           image: mailIngressImage
-          args: [
-            '--registry-azure-account-url'
-            'https://${storage.name}.blob.${az.environment().suffixes.storage}'
-            '--registry-container'
-            mailContainerName
-            '--registry-blob'
-            mailRegistryBlob
-            '--registry-domain'
-            mailDomain
-            '--azure-account-url'
-            'https://${storage.name}.blob.${az.environment().suffixes.storage}'
-            '--azure-managed-identity-client-id'
-            identity.properties.clientId
-            '--smtp-port'
-            string(mailSmtpPort)
-            '--http-port'
-            string(mailHttpPort)
-          ]
+          args: mailIngressArgs
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
           }
+          volumeMounts: mailIngressTlsEnabled ? [
+            {
+              volumeName: 'mail-ingress-tls'
+              mountPath: '/mnt/secrets'
+            }
+          ] : []
           probes: [
             {
               type: 'Readiness'
@@ -281,6 +338,22 @@ resource mailIngress 'Microsoft.App/containerApps@2024-03-01' = {
         minReplicas: mailIngressMinReplicas
         maxReplicas: mailIngressMaxReplicas
       }
+      volumes: mailIngressTlsEnabled ? [
+        {
+          name: 'mail-ingress-tls'
+          storageType: 'Secret'
+          secrets: [
+            {
+              secretRef: 'mail-ingress-tls-key'
+              path: 'mail-ingress-tls-key'
+            }
+            {
+              secretRef: 'mail-ingress-tls-cert'
+              path: 'mail-ingress-tls-cert'
+            }
+          ]
+        }
+      ] : []
     }
   }
   dependsOn: [
