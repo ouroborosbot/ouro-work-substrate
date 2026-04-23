@@ -101,7 +101,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Red tests in work-substrate and/or harness for compartment/source labels, source-scoped policy, delegated reads, native autonomous send policy, and no delegated send-as-human path.
 **Acceptance**: Tests fail against the current production branch where the distinction is incomplete or not enforced end to end.
 
-### ⬜ Unit 1b: Two-Lane Mail Contract — Implementation
+### ✅ Unit 1b: Two-Lane Mail Contract — Implementation
 **What**: Update shared protocol, harness mailroom types, docs, prompts, Outlook reader/UI, and tool responses so every mail object is clearly native-agent or delegated-human-source with stable owner/source provenance.
 **Output**: Contract/code/docs changes in the appropriate repo PRs.
 **Acceptance**: Red tests pass; no user-facing surface can present Ari's HEY mail as Slugger's own correspondence.
@@ -254,3 +254,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 18:52 Unit 0d complete: ran a fresh work-suite refresh and recorded the three release lanes, shared protocol drift risk, branch protection facts, and next thin slice in `full-moon-work-suite-refresh.md`.
 - 2026-04-22 19:13 Unit 0e complete: merged harness PR #587, watched green main publish job, verified npm/latest at `0.1.0-alpha.466`, updated local `ouro` to alpha.466, and verified installed generic vault item status/list plus deprecated Porkbun compatibility alias. Evidence lives in `unit0e-merge-publish-install.md`.
 - 2026-04-22 19:18 Unit 1a complete: added red tests in substrate and harness for shared mailbox provenance, access-log provenance, attention summaries, outbound native-send authority, and owner-scoped Outlook delegated source folders. Evidence lives in `unit1a-red-tests.md`.
+- 2026-04-22 19:37 Unit 1b complete: implemented shared/harness two-lane provenance descriptors, access-log and attention provenance, native outbound authority fields, Outlook owner-scoped source folders, legacy fallbacks, and 100% coverage. Evidence lives in `unit1b-implementation.md`.
