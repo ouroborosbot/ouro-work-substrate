@@ -23,6 +23,7 @@ export type MailDecisionAction =
   | "restore"
 export type MailScreenerCandidateStatus = "pending" | "allowed" | "discarded" | "quarantined" | "restored"
 export type MailOutboundStatus = "draft" | "sent" | "failed"
+export type MailboxRole = "agent-native-mailbox" | "delegated-human-mailbox"
 
 export interface MailAuthenticationSummary {
   spf: MailAuthenticationState
@@ -210,6 +211,16 @@ export interface StoredMailMessage {
   receivedAt: string
 }
 
+export interface MailProvenanceDescriptor {
+  mailboxRole: MailboxRole
+  mailboxLabel: string
+  agentId: string
+  ownerEmail: string | null
+  source: string | null
+  recipient: string
+  sendAsHumanAllowed: false
+}
+
 export interface DecryptedMailMessage extends StoredMailMessage {
   private: PrivateMailEnvelope
 }
@@ -380,6 +391,33 @@ export function resolveMailAddress(registry: MailroomRegistry, address: string):
     keyId: grant.keyId,
     publicKeyPem: grant.publicKeyPem,
     defaultPlacement: grant.defaultPlacement,
+  }
+}
+
+export function describeMailProvenance(message: Pick<StoredMailMessage, "agentId" | "compartmentKind" | "ownerEmail" | "source" | "recipient">): MailProvenanceDescriptor {
+  if (message.compartmentKind === "delegated") {
+    const ownerEmail = message.ownerEmail ?? null
+    const source = message.source ?? null
+    const ownerLabel = ownerEmail ?? "unknown owner"
+    const sourceLabel = source ?? "unknown source"
+    return {
+      mailboxRole: "delegated-human-mailbox",
+      mailboxLabel: `${ownerLabel} / ${sourceLabel} delegated to ${message.agentId}`,
+      agentId: message.agentId,
+      ownerEmail,
+      source,
+      recipient: message.recipient,
+      sendAsHumanAllowed: false,
+    }
+  }
+  return {
+    mailboxRole: "agent-native-mailbox",
+    mailboxLabel: `${message.recipient} (native agent mail)`,
+    agentId: message.agentId,
+    ownerEmail: null,
+    source: null,
+    recipient: message.recipient,
+    sendAsHumanAllowed: false,
   }
 }
 

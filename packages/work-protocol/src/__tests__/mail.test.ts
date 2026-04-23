@@ -235,6 +235,15 @@ describe("work protocol mail", () => {
       recipient: ensured.sourceAlias,
       sendAsHumanAllowed: false,
     })
+    expect(describeMailProvenance({ ...delegatedMessage, ownerEmail: undefined, source: undefined })).toEqual({
+      mailboxRole: "delegated-human-mailbox",
+      mailboxLabel: "unknown owner / unknown source delegated to slugger",
+      agentId: "slugger",
+      ownerEmail: null,
+      source: null,
+      recipient: ensured.sourceAlias,
+      sendAsHumanAllowed: false,
+    })
   })
 
   it("encrypts raw and private mail for the agent-owned key", () => {
