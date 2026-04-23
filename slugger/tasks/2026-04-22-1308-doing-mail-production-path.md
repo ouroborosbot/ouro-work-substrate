@@ -19,8 +19,8 @@ Bring Agent Mail to full production shape across Ouro Work Substrate and the Our
 - None
 
 ## Completion Criteria
-- [ ] Production setup calls hosted Mail Control, stores one-time private keys in the owning agent vault, configures hosted Blob reader coordinates, enables Mail sense, and reports native plus delegated addresses without printing secrets.
-- [ ] Setup and repair are idempotent across hosted registry, local registry, vault config, source grants, keys, and Blob settings.
+- [x] Production setup calls hosted Mail Control, stores one-time private keys in the owning agent vault, configures hosted Blob reader coordinates, enables Mail sense, and reports native plus delegated addresses without printing secrets.
+- [x] Setup and repair are idempotent across hosted registry, local registry, vault config, source grants, keys, and Blob settings.
 - [ ] Native agent mail and delegated human mailbox source stay separate in protocol records, storage compartments, access tools, Outlook, audit, policy, recovery, and prompt/sense context.
 - [x] The harness vault surface is corrected before DNS/mail implementation: generic human-facing vault item commands exist, notes are first-class, `ouro connect` remains harness-managed only, and templates/compatibility aliases never create new credential species.
 - [x] The harness vault-item branch is merged, published through the harness npm release lane, and installed locally before DNS/mail workflow code depends on the new surface.
@@ -121,7 +121,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Harness setup code, hosted API/client code if needed, docs, and tests.
 **Acceptance**: Repeated setup is boring/idempotent; private keys are not printed or hosted; Slugger can read hosted Blob mail through vault-held keys.
 
-### ⬜ Unit 2c: Hosted Provisioning Truth — Coverage And Refactor
+### ✅ Unit 2c: Hosted Provisioning Truth — Coverage And Refactor
 **What**: Cover locked vault, missing token, Mail Control outage, one-time key loss, malformed registry, stale local registry, and Blob credential failures.
 **Output**: Coverage pass and repair-path documentation.
 **Acceptance**: Error paths are tested and recovery copy names agent-runnable versus human-required work.
