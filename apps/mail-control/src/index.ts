@@ -26,6 +26,22 @@ export function runMailControl(args: string[] = process.argv.slice(2)): ReturnTy
     ...(parsed.adminToken ? { adminToken: parsed.adminToken } : {}),
     ...(parsed.adminTokenFile ? { adminTokenFile: parsed.adminTokenFile } : {}),
     allowedEmailDomain: parsed.allowedEmailDomain,
+    ...(parsed.azureAccountUrl
+      ? {
+          publicRegistry: {
+            kind: "azure-blob" as const,
+            azureAccountUrl: parsed.azureAccountUrl,
+            container: parsed.registryContainer,
+            blob: parsed.registryBlob,
+            domain: parsed.registryDomain.toLowerCase(),
+          },
+          blobStore: {
+            kind: "azure-blob" as const,
+            azureAccountUrl: parsed.azureAccountUrl,
+            container: parsed.registryContainer,
+          },
+        }
+      : {}),
     rateLimitWindowMs: parsed.rateLimitWindowMs,
     rateLimitMax: parsed.rateLimitMax,
     allowUnauthenticatedLocal: parsed.allowUnauthenticatedLocal,
