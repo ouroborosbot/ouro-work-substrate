@@ -28,7 +28,7 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - Preserve local development setup as an explicit mode, but prevent local-only registry/key generation from being mistaken for production readiness.
 - Keep shared protocol semantics synchronized across repos, especially mailbox records, source-grant aliases, key ids, placements, outbound statuses, and encryption/decryption behavior.
 - Configure the local harness to read and update the hosted Azure Blob mail store through a least-privilege credential stored outside Git and preferably inside the agent vault.
-- Patch the harness vault item/credential surface before DNS/mail implementation: expose generic human-facing vault item commands, keep notes first-class, reserve `ouro connect` for harness-managed capabilities, and make templates/compatibility aliases convenience layers over ordinary vault items with no assumed use.
+- Patch the harness vault item/credential surface before DNS/mail implementation: expose generic human-facing `ouro vault item` commands, keep notes first-class, reserve `ouro connect` for harness-managed capabilities, and make templates/compatibility aliases convenience layers over ordinary vault items with no assumed use.
 - Prove native inbound `slugger@ouro.bot` over real SMTP port 25, with unknown native senders landing in Screener, known/screened-in senders reaching Imbox, and sense attention never injecting raw bodies into prompt context.
 - Prove delegated HEY inbound `me.mendelow.ari.slugger@ouro.bot` over real SMTP port 25, with owner/source provenance, source-scoped policy, and UI/tooling that always identifies it as Ari's HEY mail delegated to Slugger.
 - Backfill Ari's delegated HEY source with export/import, label imported mail as historical/fresh-through material, and avoid flooding Screener/attention during archive import.
@@ -120,7 +120,7 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - Current harness reader already has an Azure Blob store shape, but production setup must configure the actual hosted Blob coordinates and least-privilege credential path.
 - Current outbound records store `text` directly in outbound JSON; production outbound needs a privacy review before writing sent bodies to Blob-backed stores.
 - Mail private keys remain in the owning agent vault, not Blob Storage, GitHub, Container Apps, logs, or scratch docs.
-- The harness already has agent-facing `credential_*` tools and a generic Bitwarden/Vaultwarden `CredentialStore`, but the human-facing CLI overfit on `vault ops porkbun`. First production work must fix that surface so a future agent sees vault item/credential as the primitive: stable item name/path, secret material, optional public fields, freeform notes, organization, timestamps/provenance, and no assumed use.
+- The harness already has agent-facing `credential_*` tools and a generic Bitwarden/Vaultwarden `CredentialStore`, but the human-facing CLI overfit on `vault ops porkbun` and harness origin added `Operational Credentials` plus `ops-credential/porkbun` as first-class vocabulary. First production work must fix those stronger signals so a future agent sees vault item/credential as the primitive: stable item name/path, secret material, optional public fields, freeform notes, organization, timestamps/provenance, and no assumed use.
 
 ## Context / References
 - `AGENTS.md`: trust invariants, repo boundary, human-only gates, and task workflow.
@@ -184,3 +184,4 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - 2026-04-22 17:25 Corrected credential orientation after compaction: generic vault item first, workflow binding second, provider driver/template last; Porkbun remains only the current DNS driver for `ouro.bot`
 - 2026-04-22 17:36 Promoted the harness vault item surface fix to first-order scope before mail/DNS implementation
 - 2026-04-22 17:45 Rewrote credential model to remove remaining provider/access ontology: primitive is vault item/credential with no assumed use; workflows bind to it outside the item; notes are never parsed
+- 2026-04-22 18:10 Added a source-grounded vault surface documentation map: existing harness primitive is general, but origin/help/docs currently teach `Operational Credentials`, `ops-credential/porkbun`, and domain-shaped vocabulary; first PR must make `ouro vault item` canonical across docs/help/tests and keep Porkbun as template/deprecated alias only

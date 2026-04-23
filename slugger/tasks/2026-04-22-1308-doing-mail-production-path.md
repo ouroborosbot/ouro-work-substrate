@@ -69,18 +69,18 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 
 ### ⬜ Unit 0a: Harness Vault Item Surface — Tests
 **What**: Write failing harness tests and doc contracts for a generic human-facing vault item/credential surface: stable item name/path, hidden secret entry, optional public fields, freeform editable notes, tags/folder-ish organization, timestamps/provenance, list/status without secret exposure, reserved runtime/config guidance, templates as convenience only, and provider helper compatibility.
-**Output**: Red CLI/docs tests in the harness worktree.
-**Acceptance**: Tests fail where the only human CLI path for an arbitrary credential is provider-specific or where docs imply ops credentials, authorities, DNS credentials, or provider credentials are separate ontologies for freeform vault items.
+**Output**: Red CLI/docs tests in the harness worktree, including docs contracts for `README.md`, `AGENTS.md`, `docs/auth-and-providers.md`, and `ouro help vault`.
+**Acceptance**: Tests fail where the only human CLI path for an arbitrary credential is provider-specific, where docs/help show template or compatibility helpers before the generic item surface, or where docs imply ops credentials, authorities, DNS credentials, or provider credentials are separate ontologies for freeform vault items.
 
 ### ⬜ Unit 0b: Harness Vault Item Surface — Implementation
 **What**: Implement or expose generic `ouro vault item` or `ouro vault credential` commands over the existing agent-vault item primitive, with clear item naming, notes, hidden secret prompts, metadata-only status/list, and guardrails around reserved harness-managed items. Templates such as `--template porkbun-api` only shape prompts/fields. Keep `vault ops porkbun` as a deprecated compatibility alias that stores an ordinary vault item and points users toward the generic model.
-**Output**: Harness CLI/code/docs changes, compatibility behavior, and task notes.
+**Output**: Harness CLI/code/docs changes, compatibility behavior, and task notes. `docs/auth-and-providers.md` must replace the misleading `Operational Credentials` framing with `Vault Items, Managed Workflows, And Bindings` or equivalent wording.
 **Acceptance**: A human can store/check a non-runtime credential for Slugger without a provider-specific command; the existing Porkbun-related item remains usable as a normal vault item that a DNS workflow binding may reference.
 
 ### ⬜ Unit 0c: Harness Vault Item Surface — Coverage And Release
 **What**: Cover error paths, noninteractive failures, reserved item collisions, no-secret logging, notes handling, and command-help ergonomics; run harness tests/release preflight, merge/release/install as needed.
 **Output**: Coverage artifacts, PR/release evidence, and updated local installed `ouro`.
-**Acceptance**: 100% coverage on new vault-surface code and future agents see "vault item / credential with no assumed use" first in help/docs before templates or compatibility aliases.
+**Acceptance**: 100% coverage on new vault-surface code and future agents see "vault item / credential with no assumed use" first in help/docs before templates or compatibility aliases. Docs/tests explicitly say notes are for human/agent orientation and are never machine contracts.
 
 ### ⬜ Unit 1a: Two-Lane Mail Contract — Tests
 **What**: Write failing tests/contract checks that native agent mail and delegated human mailbox source cannot collapse across protocol, harness types, tools, Outlook labels, prompt/sense summaries, and recovery records.
@@ -230,3 +230,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 17:25 Captured post-compaction credential-orientation correction: generic vault item first, workflow binding second, provider template last.
 - 2026-04-22 17:36 Promoted the generic harness vault item surface from documentation debt into first-order Units 0a-0c before DNS/mail implementation.
 - 2026-04-22 17:45 Rewrote credential orientation to the stricter primitive: vault item/credential with no assumed use; workflows bind to items outside the item; notes are never machine contracts.
+- 2026-04-22 18:10 Mapped the documentation and surface fix: harness origin currently teaches `Operational Credentials` plus `vault ops porkbun`; implementation must make `ouro vault item` canonical and reduce provider helpers to templates or deprecated compatibility aliases.
