@@ -67,10 +67,26 @@ describe("DNS workflow production contract", () => {
       { type: "TXT", name: "@" },
       { type: "TXT", name: "_dmarc" },
       { type: "TXT", name: "_acme-challenge.mx1" },
+      { type: "CNAME", name: "selector1-azurecomm-prod-net._domainkey" },
+      { type: "CNAME", name: "selector2-azurecomm-prod-net._domainkey" },
     ]))
     expect(binding.desired?.records).toEqual(expect.arrayContaining([
       expect.objectContaining({ type: "A", name: "mx1", content: "20.10.114.197", ttl: 600 }),
       expect.objectContaining({ type: "MX", name: "@", content: "mx1.ouro.bot", priority: 10, ttl: 600 }),
+      expect.objectContaining({ type: "TXT", name: "@", content: "v=spf1 include:spf.protection.outlook.com -all", ttl: 600 }),
+      expect.objectContaining({ type: "TXT", name: "@", content: "ms-domain-verification=4722d1d1-c4c6-4fd6-a28d-cc4ccfb3a54c", ttl: 600 }),
+      expect.objectContaining({
+        type: "CNAME",
+        name: "selector1-azurecomm-prod-net._domainkey",
+        content: "selector1-azurecomm-prod-net._domainkey.azurecomm.net",
+        ttl: 600,
+      }),
+      expect.objectContaining({
+        type: "CNAME",
+        name: "selector2-azurecomm-prod-net._domainkey",
+        content: "selector2-azurecomm-prod-net._domainkey.azurecomm.net",
+        ttl: 600,
+      }),
       expect.objectContaining({ type: "TXT", name: "_dmarc" }),
     ]))
     expect(binding.certificate).toMatchObject({
