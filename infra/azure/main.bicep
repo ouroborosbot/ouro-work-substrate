@@ -44,6 +44,9 @@ param outboundEmailDataLocation string = 'United States'
 @description('Whether the ACS Communication Services resource should link the custom email domain. Leave false until DNS records are verified.')
 param outboundEmailLinkVerifiedDomain bool = false
 
+@description('Whether the ACS custom email domain already exists and should be treated as an existing resource to preserve verification state.')
+param outboundEmailDomainExists bool = false
+
 @description('Virtual network address prefix for the Container Apps environment.')
 param virtualNetworkAddressPrefix string = '10.42.0.0/16'
 
@@ -176,7 +179,7 @@ resource outboundEmailService 'Microsoft.Communication/emailServices@2026-03-18'
   }
 }
 
-resource outboundEmailDomain 'Microsoft.Communication/emailServices/domains@2026-03-18' = {
+resource outboundEmailDomain 'Microsoft.Communication/emailServices/domains@2026-03-18' = if (!outboundEmailDomainExists) {
   parent: outboundEmailService
   name: mailDomain
   location: 'global'
@@ -186,13 +189,27 @@ resource outboundEmailDomain 'Microsoft.Communication/emailServices/domains@2026
   }
 }
 
+resource outboundEmailDomainExisting 'Microsoft.Communication/emailServices/domains@2026-03-18' existing = if (outboundEmailDomainExists) {
+  parent: outboundEmailService
+  name: mailDomain
+}
+
+var outboundEmailDomainId = outboundEmailDomainExists ? outboundEmailDomainExisting!.id : outboundEmailDomain!.id
+var outboundEmailDomainName = outboundEmailDomainExists ? outboundEmailDomainExisting!.name : outboundEmailDomain!.name
+var outboundEmailDomainVerificationRecords = outboundEmailDomainExists
+  ? outboundEmailDomainExisting!.properties.verificationRecords
+  : outboundEmailDomain!.properties.verificationRecords
+var outboundEmailDomainVerificationStates = outboundEmailDomainExists
+  ? outboundEmailDomainExisting!.properties.verificationStates
+  : outboundEmailDomain!.properties.verificationStates
+
 resource outboundCommunicationService 'Microsoft.Communication/communicationServices@2024-09-01-preview' = {
   name: '${prefix}-communication'
   location: 'global'
   properties: {
     dataLocation: outboundEmailDataLocation
     linkedDomains: outboundEmailLinkVerifiedDomain ? [
-      outboundEmailDomain.id
+      outboundEmailDomainId
     ] : []
   }
 }
@@ -618,7 +635,7 @@ output vaultControlFqdn string = vaultControl.properties.configuration.ingress.f
 output outboundAcsEndpoint string = 'https://${outboundCommunicationService.name}.communication.azure.com'
 output outboundCommunicationServiceName string = outboundCommunicationService.name
 output outboundEmailServiceName string = outboundEmailService.name
-output outboundEmailDomainName string = outboundEmailDomain.name
-output outboundEmailDomainVerificationRecords object = outboundEmailDomain.properties.verificationRecords
-output outboundEmailDomainVerificationStates object = outboundEmailDomain.properties.verificationStates
+output outboundEmailDomainName string = outboundEmailDomainName
+output outboundEmailDomainVerificationRecords object = outboundEmailDomainVerificationRecords
+output outboundEmailDomainVerificationStates object = outboundEmailDomainVerificationStates
 output outboundDeliveryEventSubscriptionName string = '${prefix}-acs-email-delivery'
