@@ -130,12 +130,21 @@ describe("mail ingress args", () => {
       "--azure-account-url", "https://storage.blob.core.windows.net",
       "--registry-container", "mail",
       "--registry-blob", "registry/prod.json",
-      "--registry-refresh-ms", "5000",
     ])
 
     expect(parsed.registryAzureAccountUrl).toBe("https://storage.blob.core.windows.net")
     expect(parsed.registryContainer).toBe("mail")
     expect(parsed.registryBlob).toBe("registry/prod.json")
+    expect(parsed.registryRefreshMs).toBe(0)
+  })
+
+  it("keeps explicit dynamic Azure Blob registry refresh caching opt-in", () => {
+    const parsed = parseMailIngressArgs([
+      "--registry-azure-account-url", "https://storage.blob.core.windows.net",
+      "--azure-account-url", "https://storage.blob.core.windows.net",
+      "--registry-refresh-ms", "5000",
+    ])
+
     expect(parsed.registryRefreshMs).toBe(5000)
   })
 })

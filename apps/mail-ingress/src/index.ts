@@ -72,6 +72,7 @@ export function runMailIngress(args: string[] = process.argv.slice(2)): MailIngr
       httpPort: parsed.httpPort,
       store: parsed.azureAccountUrl ? "azure-blob" : "file",
       registry: parsed.registryAzureAccountUrl ? "azure-blob" : "static",
+      registryRefreshMs: parsed.registryRefreshMs,
     },
   })
   return servers
