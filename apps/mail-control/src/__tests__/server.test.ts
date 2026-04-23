@@ -560,6 +560,9 @@ describe("mail control server", () => {
         async ensureMailbox() {
           throw "store offline"
         },
+        async rotateMailboxKeys() {
+          throw "store offline"
+        },
       },
       adminToken: "secret",
       allowedEmailDomain: "ouro.bot",
