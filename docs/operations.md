@@ -73,7 +73,7 @@ Nonstandard exposed SMTP ports are diagnostic-only and must not back an MX recor
 
 Outbound native-agent mail uses Azure Communication Services Email. The Bicep deploy owns the Email Communication Service, the CustomerManaged `ouro.bot` email domain, and the Communication Services resource. The Event Grid delivery subscription is created by the deploy workflow after app deployment, using the same CLI path that succeeds against the global Communication resource. The domain starts unlinked until the DNS verification records are applied and verified. The deploy workflow reads the current domain verification state and links the domain only after Domain, SPF, DKIM, and DKIM2 are all `Verified`; it preserves the linked domain once verification is complete instead of resetting it to empty on later deploys.
 
-The deploy workflow registers `Microsoft.Communication` and `Microsoft.EventGrid` before applying the Bicep template, then verifies both providers are `Registered`. If provider registration fails, fix subscription permissions or register the provider from an account with subscription-level rights and rerun the workflow.
+The deploy workflow first checks `Microsoft.Communication` and `Microsoft.EventGrid`, then requests registration only when one is still unregistered. That keeps normal resource-group-scoped deploys from failing after the providers are already enabled. The deploy identity only needs subscription-level register permission when a provider is still unregistered. If a provider genuinely is not registered and the workflow cannot register it, use an account with subscription-level rights once, then rerun the workflow.
 
 The ACS access key is not a harness-managed `ouro connect` credential. Store it as an ordinary Slugger vault item, then reference that item from `mailroom.outbound` in runtime config:
 
@@ -138,6 +138,8 @@ Safe DNS work follows this order:
 4. `verify`: re-read provider records and public DNS until the expected records appear or propagation is still pending.
 5. `certificate`: retrieve the allowlisted TLS certificate bundle and store it in the configured agent vault item without printing private key material.
 6. `rollback`: restore allowlisted records from a recorded backup when a change is wrong.
+
+For `ouro.bot`, the binding intentionally manages sibling apex `TXT` records for ACS domain ownership plus SPF, while preserving unrelated TXT siblings such as Google verification and older Microsoft verification records. The same binding also carries the ACS `selector1-azurecomm-prod-net._domainkey` and `selector2-azurecomm-prod-net._domainkey` `CNAME` records needed for DKIM/DKIM2 sender authentication.
 
 Do not edit records outside the binding allowlist during this workflow. Preserve Microsoft, Google, and other third-party verification records unless a later binding intentionally manages them. Artifacts may include record names, types, TTLs, provider ids, and public certificate chains; they must never include provider keys, secret headers, certificate private keys, raw email bodies, or vault unlock material.
 

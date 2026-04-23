@@ -129,24 +129,37 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          az provider register --namespace Microsoft.Communication --wait
-          az provider register --namespace Microsoft.EventGrid --wait
-          communication_state="$(az provider show --namespace Microsoft.Communication --query registrationState -o tsv)"
-          event_grid_state="$(az provider show --namespace Microsoft.EventGrid --query registrationState -o tsv)"
-          if [[ "$communication_state" != "Registered" ]]; then
-            echo "Microsoft.Communication provider registration state is $communication_state, expected Registered." >&2
-            exit 1
-          fi
-          if [[ "$event_grid_state" != "Registered" ]]; then
-            echo "Microsoft.EventGrid provider registration state is $event_grid_state, expected Registered." >&2
-            exit 1
-          fi
+          ensure_provider() {
+            local namespace="$1"
+            local current_state=""
+            local final_state=""
+            local register_requested="false"
+            current_state="$(az provider show --namespace "$namespace" --query registrationState -o tsv)"
+            if [[ "$current_state" != "Registered" ]]; then
+              register_requested="true"
+              if ! az provider register --namespace "$namespace" --wait; then
+                final_state="$(az provider show --namespace "$namespace" --query registrationState -o tsv)"
+                if [[ "$final_state" != "Registered" ]]; then
+                  echo "Provider $namespace is $final_state after register attempt failed; expected Registered." >&2
+                  exit 1
+                fi
+              fi
+            fi
+            final_state="${final_state:-$(az provider show --namespace "$namespace" --query registrationState -o tsv)}"
+            if [[ "$final_state" != "Registered" ]]; then
+              echo "Provider $namespace registration state is $final_state, expected Registered." >&2
+              exit 1
+            fi
+            {
+              echo "- $namespace: \`$final_state\` (initial: \`$current_state\`, register requested: \`$register_requested\`)"
+            } >> "$GITHUB_STEP_SUMMARY"
+          }
           {
             echo "### Azure resource providers"
             echo
-            echo "- Microsoft.Communication: \`$communication_state\`"
-            echo "- Microsoft.EventGrid: \`$event_grid_state\`"
           } >> "$GITHUB_STEP_SUMMARY"
+          ensure_provider Microsoft.Communication
+          ensure_provider Microsoft.EventGrid
 
       - name: Ensure resource group and registry
         if: steps.deploy_decision.outputs.should_deploy == 'true'
