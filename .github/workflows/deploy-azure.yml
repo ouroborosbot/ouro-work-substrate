@@ -19,9 +19,9 @@ on:
         required: true
         default: eastus2
       mail_exposed_smtp_port:
-        description: External SMTP proof port. Do not use 25 until MX ingress is approved.
+        description: External SMTP port. Production MX uses 25; use nonstandard ports only for diagnostics.
         required: true
-        default: "2525"
+        default: "25"
 
 permissions:
   contents: read
@@ -40,7 +40,7 @@ jobs:
       AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
       AZURE_LOCATION: ${{ inputs.location || vars.AZURE_LOCATION || 'eastus2' }}
       AZURE_ENVIRONMENT_NAME: ${{ inputs.environment_name || vars.AZURE_ENVIRONMENT_NAME || 'prod' }}
-      AZURE_MAIL_EXPOSED_SMTP_PORT: ${{ inputs.mail_exposed_smtp_port || vars.AZURE_MAIL_EXPOSED_SMTP_PORT || '2525' }}
+      AZURE_MAIL_EXPOSED_SMTP_PORT: ${{ inputs.mail_exposed_smtp_port || vars.AZURE_MAIL_EXPOSED_SMTP_PORT || '25' }}
       AZURE_MAIL_INGRESS_MAX_RECIPIENTS: ${{ vars.AZURE_MAIL_INGRESS_MAX_RECIPIENTS || '100' }}
       AZURE_MAIL_INGRESS_MAX_CONNECTIONS: ${{ vars.AZURE_MAIL_INGRESS_MAX_CONNECTIONS || '100' }}
       AZURE_MAIL_INGRESS_CONNECTION_RATE_LIMIT_MAX: ${{ vars.AZURE_MAIL_INGRESS_CONNECTION_RATE_LIMIT_MAX || '120' }}
