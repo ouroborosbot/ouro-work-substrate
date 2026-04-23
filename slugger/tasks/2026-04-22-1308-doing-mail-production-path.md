@@ -136,7 +136,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Scripts/CLI/workflow, binding docs, driver docs, and secret hygiene checks.
 **Acceptance**: With the configured workflow binding, automation can retrieve current records and produce a safe dry-run; apply/rollback are available for cutover.
 
-### ⬜ Unit 3c: DNS And Certificate Automation — Coverage And Refactor
+### ✅ Unit 3c: DNS And Certificate Automation — Coverage And Refactor
 **What**: Verify no secrets in logs/process artifacts, cover vault item lookup failures, missing required secret fields, provider API failures, rate limits, propagation pending, and document future-session access using the generic vault-item plus workflow-binding model.
 **Output**: Coverage artifacts and operations docs.
 **Acceptance**: 100% coverage on new DNS/cert automation and a successful read-only workflow-binding check for the current `ouro.bot` binding.
@@ -261,3 +261,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 20:26 Unit 2c complete: restored hosted Mail Control response coverage, covered hosted repair and failure edges, and reran substrate plus harness coverage gates at 100%. Evidence lives in `unit2c-coverage-repair.md`.
 - 2026-04-22 20:33 Unit 3a complete: added and pushed red substrate/harness tests for DNS workflow bindings, Porkbun read-only driver behavior, no note parsing, backup/dry-run/apply/verify/rollback, allowlists, and certificate secret redaction. Evidence lives in `unit3a-red-tests.md`.
 - 2026-04-22 20:41 Unit 3b complete: added the `ouro.bot` DNS workflow binding/runbook plus harness parser, binding validator, vault-field secret resolver, Porkbun read/mutation driver, backup/plan/apply/verify/rollback execution, rollback planning, and redacted artifacts. Evidence lives in `unit3b-implementation.md`.
+- 2026-04-22 21:27 Unit 3c complete: closed DNS workflow coverage and Nerves observability, added legacy flat-payload support for the real Slugger Porkbun vault item, normalized live Porkbun DNS records before planning, and proved a read-only `ouro.bot` DNS plan with no secret leakage. Evidence lives in `unit3c-coverage-repair.md`.
