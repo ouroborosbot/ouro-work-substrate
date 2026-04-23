@@ -38,11 +38,11 @@ Bring Agent Mail to full production shape across Ouro Work Substrate and the Our
 - [x] Hosted substrate packaging/deployment is documented and verified as private commit-addressed Docker images plus Bicep/GitHub Actions deploy, not an npm package for deployable services.
 - [x] Branch protections for `ouro-work-substrate` and `ouroboros` require the intended green checks, enforce admins, require linear history, and require conversation resolution.
 - [ ] Live smoke proves hosted health, mailbox/source ensure, SMTP accept/reject, encryption/decryption, native Screener/Imbox, delegated HEY backfill and forward, autonomous native send policy, provider event reconciliation, and Ouro Outlook audit.
-- [ ] `npm run ci:local` passes in `ouro-work-substrate`.
-- [ ] Relevant harness tests, `npx tsc --noEmit`, and release preflight pass in `/Users/arimendelow/Projects/ouroboros-agent-harness` or its task worktree.
-- [ ] 100% test coverage on all new code.
-- [ ] All tests pass.
-- [ ] No warnings.
+- [x] `npm run ci:local` passes in `ouro-work-substrate`.
+- [x] Relevant harness tests, `npx tsc --noEmit`, and release preflight pass in `/Users/arimendelow/Projects/ouroboros-agent-harness` or its task worktree.
+- [x] 100% test coverage on all new code.
+- [x] All tests pass.
+- [x] No warnings.
 
 ## Code Coverage Requirements
 **MANDATORY: 100% coverage on all new code.**
@@ -166,7 +166,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Harness setup/onboarding changes, source-state records, docs, and verification tooling.
 **Acceptance**: Ari's imported and future-forwarded HEY mail are searchable/readable with bounded audited tools and always labeled as delegated source mail.
 
-### ⬜ Unit 5c: Delegated HEY Source — Coverage And Refactor
+### ✅ Unit 5c: Delegated HEY Source — Coverage And Refactor
 **What**: Cover missing MBOX, duplicate imports, forwarding not configured, source revoked while mail still forwards, wrong alias, and source-scoped allow/discard conflicts.
 **Output**: Coverage artifacts and recovery runbook.
 **Acceptance**: 100% coverage on new delegated-source code and successful local proof.
@@ -269,3 +269,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 23:20 Unit 4e harness release-lane repair complete: alpha.467 published but its main smoke hit an npm `ECONNRESET`; harness PR #589 added retry coverage, published alpha.468 cleanly, and local `ouro`/`ouro.bot` now report `0.1.0-alpha.468`. Evidence lives in `unit4e-harness-release-lane-repair.md`.
 - 2026-04-22 23:36 Unit 5a complete: added red substrate and harness tests for delegated HEY archive freshness/provenance, no import wake storm, live SMTP ingest provenance, Slugger-managed HEY browser setup state, wrong-alias recovery, CLI output, and docs guidance. Evidence lives in `unit5a-red-tests.md`.
 - 2026-04-22 23:43 Unit 5b complete: implemented shared ingest provenance, historical MBOX import freshness, source-state recovery, CLI import output, and HEY setup docs. Evidence lives in `unit5b-implementation.md`.
+- 2026-04-23 00:08 Unit 5c complete: closed delegated-source coverage, added body-safe source-state Nerves events, bumped harness release lane to alpha.469, and passed substrate `ci:local`, harness coverage/audit, release preflight, and package e2e. Evidence lives in `unit5c-coverage-refactor.md`.
