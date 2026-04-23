@@ -23,7 +23,7 @@ Bring Agent Mail to full production shape across Ouro Work Substrate and the Our
 - [ ] Setup and repair are idempotent across hosted registry, local registry, vault config, source grants, keys, and Blob settings.
 - [ ] Native agent mail and delegated human mailbox source stay separate in protocol records, storage compartments, access tools, Outlook, audit, policy, recovery, and prompt/sense context.
 - [x] The harness vault surface is corrected before DNS/mail implementation: generic human-facing vault item commands exist, notes are first-class, `ouro connect` remains harness-managed only, and templates/compatibility aliases never create new credential species.
-- [ ] The harness vault-item branch is merged, published through the harness npm release lane, and installed locally before DNS/mail workflow code depends on the new surface.
+- [x] The harness vault-item branch is merged, published through the harness npm release lane, and installed locally before DNS/mail workflow code depends on the new surface.
 - [ ] DNS/mail production workflows consume explicit non-secret bindings that reference generic vault item paths; no code or docs treat the referenced item as an ops credential, authority, Porkbun credential, DNS credential, or provider-shaped ontology.
 - [ ] Shared mail protocol semantics are protected by a consumed `@ouro/work-protocol` package boundary or generated/schema contract tests so harness and substrate cannot drift silently.
 - [ ] Production MX points to a proven port-25 edge with STARTTLS, size limits, transient/permanent failures, rate limits, recipient limits, and body-safe observability.
@@ -91,7 +91,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: `full-moon-work-suite-refresh.md` plus refreshed planning/doing docs.
 **Acceptance**: The task docs make clear that harness npm release/install, hosted Azure deploy, shared protocol package/contract gates, branch protection, and live smoke are part of "done"; no unresolved human product questions remain.
 
-### ⬜ Unit 0e: Harness Vault Item Surface — Merge, Publish, Install
+### ✅ Unit 0e: Harness Vault Item Surface — Merge, Publish, Install
 **What**: Create the harness PR for `slugger/vault-item-surface`, wait for CI, merge to `main`, publish/install the resulting harness alpha release, and verify the installed `ouro` exposes the generic vault item surface plus deprecated Porkbun compatibility alias.
 **Output**: PR URL, CI/merge/release/install evidence, installed CLI verification logs.
 **Acceptance**: The local agent runtime can rely on `ouro vault item` in the installed harness; `vault ops porkbun` still works as a deprecated alias over an ordinary item; DNS/mail workflow work is no longer blocked on unreleased harness surface changes.
@@ -252,3 +252,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 18:49 Unit 0c complete: pushed harness commit `4dec8d50c9f5c05986352fb48616b9ceb229e563` with 100% full coverage, nerves audit pass, release preflight pass after alpha.466 version/changelog bump, and guardrail coverage for reserved/freeform vault item behavior. Evidence lives in `unit0c-coverage-release.md`.
 - 2026-04-22 18:49 Human explicitly flagged that the full-moon mail plan needs a fresh work-suite pass after the vault ontology correction and that packaging/deployment must be first-class scope, not an afterthought.
 - 2026-04-22 18:52 Unit 0d complete: ran a fresh work-suite refresh and recorded the three release lanes, shared protocol drift risk, branch protection facts, and next thin slice in `full-moon-work-suite-refresh.md`.
+- 2026-04-22 19:13 Unit 0e complete: merged harness PR #587, watched green main publish job, verified npm/latest at `0.1.0-alpha.466`, updated local `ouro` to alpha.466, and verified installed generic vault item status/list plus deprecated Porkbun compatibility alias. Evidence lives in `unit0e-merge-publish-install.md`.
