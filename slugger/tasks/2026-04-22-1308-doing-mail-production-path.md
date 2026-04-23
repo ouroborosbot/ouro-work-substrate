@@ -72,7 +72,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Red CLI/docs tests in the harness worktree, including docs contracts for `README.md`, `AGENTS.md`, `docs/auth-and-providers.md`, and `ouro help vault`.
 **Acceptance**: Tests fail where the only human CLI path for an arbitrary credential is provider-specific, where docs/help show template or compatibility helpers before the generic item surface, or where docs imply ops credentials, authorities, DNS credentials, or provider credentials are separate ontologies for freeform vault items.
 
-### ⬜ Unit 0b: Harness Vault Item Surface — Implementation
+### ✅ Unit 0b: Harness Vault Item Surface — Implementation
 **What**: Implement or expose generic `ouro vault item` or `ouro vault credential` commands over the existing agent-vault item primitive, with clear item naming, notes, hidden secret prompts, metadata-only status/list, and guardrails around reserved harness-managed items. Templates such as `--template porkbun-api` only shape prompts/fields. Keep `vault ops porkbun` as a deprecated compatibility alias that stores an ordinary vault item and points users toward the generic model.
 **Output**: Harness CLI/code/docs changes, compatibility behavior, and task notes. `docs/auth-and-providers.md` must replace the misleading `Operational Credentials` framing with `Vault Items, Managed Workflows, And Bindings` or equivalent wording.
 **Acceptance**: A human can store/check a non-runtime credential for Slugger without a provider-specific command; the existing Porkbun-related item remains usable as a normal vault item that a DNS workflow binding may reference.
@@ -233,3 +233,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 17:51 Mapped the documentation and surface fix: harness origin currently teaches `Operational Credentials` plus `vault ops porkbun`; implementation must make `ouro vault item` canonical and reduce provider helpers to templates or deprecated compatibility aliases.
 - 2026-04-22 17:56 Unit 0 complete: captured clean substrate and harness worktrees, live DNS/Azure/GitHub/vault facts, foundation mail carry-forward, and genuine remaining human gates in `unit0-baseline.md`.
 - 2026-04-22 18:04 Unit 0a complete: added and pushed red harness tests for generic vault item docs, help, parsing, execution, compatibility alias behavior, and agent-facing credential tool vocabulary. Evidence lives in `unit0a-red-tests.md`.
+- 2026-04-22 18:12 Unit 0b complete: implemented and pushed the generic harness vault item surface, documentation ladder, agent-tool vocabulary, and Porkbun deprecated compatibility alias. Evidence lives in `unit0b-implementation.md`.
