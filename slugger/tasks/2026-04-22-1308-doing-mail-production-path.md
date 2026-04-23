@@ -156,7 +156,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Test logs and operations updates.
 **Acceptance**: Port-25 proof is reproducible or a fallback edge is live and proven.
 
-### ⬜ Unit 5a: Delegated HEY Source — Tests
+### ✅ Unit 5a: Delegated HEY Source — Tests
 **What**: Write failing tests for HEY MBOX backfill freshness/provenance, no import wake storm, future-forwarded source placement, source-scoped Screener decisions, source revocation, and forwarding setup state.
 **Output**: Red harness/work-substrate tests and HEY fixture cases.
 **Acceptance**: Tests fail where historical import and live delegated forwarding are not clearly separated.
@@ -267,3 +267,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 22:35 Unit 4c complete: public `ouro.bot` MX now points at a proven Container Apps port-25 edge with STARTTLS, SMTP policy checks, DNS backup/apply/verify, body-safe log inspection, deployment evidence, and harness DNS certificate workflow support at `9d14f5dd`. Evidence lives in `unit4c-production-edge-proof.md`; real provider delivery remains the next human-sender smoke.
 - 2026-04-22 22:50 Unit 4d deploy-hook repair complete: fixed the post-merge Azure deploy skip decision to compare the current deployed commit-tagged image against the CI-tested commit range instead of trusting a docs-only head commit. Evidence lives in `unit4d-deploy-hook-repair.md`.
 - 2026-04-22 23:20 Unit 4e harness release-lane repair complete: alpha.467 published but its main smoke hit an npm `ECONNRESET`; harness PR #589 added retry coverage, published alpha.468 cleanly, and local `ouro`/`ouro.bot` now report `0.1.0-alpha.468`. Evidence lives in `unit4e-harness-release-lane-repair.md`.
+- 2026-04-22 23:36 Unit 5a complete: added red substrate and harness tests for delegated HEY archive freshness/provenance, no import wake storm, live SMTP ingest provenance, Slugger-managed HEY browser setup state, wrong-alias recovery, CLI output, and docs guidance. Evidence lives in `unit5a-red-tests.md`.
