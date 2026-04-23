@@ -1,6 +1,6 @@
 # HEY Onboarding Live State
 
-Last updated: 2026-04-23 06:23 PDT
+Last updated: 2026-04-23 06:31 PDT
 
 ## Current State
 
@@ -25,6 +25,14 @@ Observed browser state:
 - The form is asking for email and password.
 - No MFA or CAPTCHA has appeared yet.
 - This is a real human gate. Credentials must be typed into the browser by the human, not pasted into chat or task docs.
+
+The handoff record itself is merged and verified on `main`:
+
+- PR: <https://github.com/ouroborosbot/ouro-work-substrate/pull/24>
+- Merge commit: `d7aba6f69a84d20b0c45e105e864ad6f666149b8`
+- Main CI: <https://github.com/ouroborosbot/ouro-work-substrate/actions/runs/24837914772>
+- Deploy hook: <https://github.com/ouroborosbot/ouro-work-substrate/actions/runs/24837984332>
+- Deploy result: success, with runtime deployment steps skipped because this was a documentation-only change.
 
 ## Next Human Action
 
