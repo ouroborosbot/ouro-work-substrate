@@ -3,11 +3,18 @@ import * as fs from "node:fs"
 import * as net from "node:net"
 import * as os from "node:os"
 import * as path from "node:path"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { ensureMailboxRegistry } from "@ouro/work-protocol"
 import { FileMailroomStore } from "../store"
-import { createMailIngressHealthServer, createMailIngressSmtpServer, parsePrivateMailEnvelope, startMailIngress } from "../server"
+import { createMailIngressHealthServer, createMailIngressSmtpServer, parsePrivateMailEnvelope, startMailIngress, type MailIngressOptions } from "../server"
 import { StaticRegistryProvider } from "../registry"
+
+type SmtpProductionOptions = MailIngressOptions & {
+  tls?: { key: string; cert: string }
+  maxRecipients?: number
+}
+
+const defaultTlsOptions = require("smtp-server/lib/tls-options") as () => { key: string; cert: string }
 
 function listen(server: http.Server): Promise<number> {
   return new Promise((resolve) => {
@@ -218,6 +225,74 @@ describe("mail ingress server", () => {
     }
   })
 
+  it("advertises STARTTLS and SIZE without AUTH for production ingress", async () => {
+    const registry = ensureMailboxRegistry({ agentId: "slugger" }).registry
+    const tls = defaultTlsOptions()
+    const server = createMailIngressSmtpServer({
+      registryProvider: new StaticRegistryProvider(registry),
+      store: new FileMailroomStore(fs.mkdtempSync(path.join(os.tmpdir(), "ouro-smtp-starttls-"))),
+      maxMessageBytes: 64,
+      tls,
+    } satisfies SmtpProductionOptions)
+    const port = await listenSmtp(server)
+    try {
+      const transcript = await smtpExchange(port, [
+        { send: "EHLO localhost\r\n", expect: /^250/m },
+        { send: "QUIT\r\n", expect: /^221/m },
+      ])
+      expect(transcript).toMatch(/^250-STARTTLS/m)
+      expect(transcript).toMatch(/^250-SIZE 64/m)
+      expect(transcript).not.toMatch(/^250-AUTH/m)
+    } finally {
+      await closeSmtp(server)
+    }
+  })
+
+  it("rejects declared oversized messages before DATA", async () => {
+    const registry = ensureMailboxRegistry({ agentId: "slugger" }).registry
+    const server = createMailIngressSmtpServer({
+      registryProvider: new StaticRegistryProvider(registry),
+      store: new FileMailroomStore(fs.mkdtempSync(path.join(os.tmpdir(), "ouro-smtp-size-"))),
+      maxMessageBytes: 64,
+      tls: defaultTlsOptions(),
+    } satisfies SmtpProductionOptions)
+    const port = await listenSmtp(server)
+    try {
+      const transcript = await smtpExchange(port, [
+        { send: "EHLO localhost\r\n", expect: /^250/m },
+        { send: "MAIL FROM:<ari@mendelow.me> SIZE=65\r\n", expect: /^[25]\d\d/m },
+        { send: "QUIT\r\n", expect: /^221/m },
+      ])
+      expect(transcript).toMatch(/^552/m)
+    } finally {
+      await closeSmtp(server)
+    }
+  })
+
+  it("enforces recipient count limits per transaction", async () => {
+    const registry = ensureMailboxRegistry({ agentId: "slugger" }).registry
+    const server = createMailIngressSmtpServer({
+      registryProvider: new StaticRegistryProvider(registry),
+      store: new FileMailroomStore(fs.mkdtempSync(path.join(os.tmpdir(), "ouro-smtp-recipient-limit-"))),
+      maxRecipients: 2,
+      tls: defaultTlsOptions(),
+    } satisfies SmtpProductionOptions)
+    const port = await listenSmtp(server)
+    try {
+      const transcript = await smtpExchange(port, [
+        { send: "EHLO localhost\r\n", expect: /^250/m },
+        { send: "MAIL FROM:<ari@mendelow.me>\r\n", expect: /^250/m },
+        { send: "RCPT TO:<slugger@ouro.bot>\r\n", expect: /^250/m },
+        { send: "RCPT TO:<slugger@ouro.bot>\r\n", expect: /^250/m },
+        { send: "RCPT TO:<slugger@ouro.bot>\r\n", expect: /^[245]\d\d/m },
+        { send: "QUIT\r\n", expect: /^221/m },
+      ])
+      expect(transcript).toMatch(/^452/m)
+    } finally {
+      await closeSmtp(server)
+    }
+  })
+
   it("rejects unknown SMTP recipients", async () => {
     const registry = ensureMailboxRegistry({ agentId: "slugger" }).registry
     const server = createMailIngressSmtpServer({
@@ -329,6 +404,49 @@ describe("mail ingress server", () => {
       ])
       expect(transcript).toContain("store failed")
     } finally {
+      await closeSmtp(server)
+    }
+  })
+
+  it("does not leak mail body text through SMTP errors or logs", async () => {
+    const registry = ensureMailboxRegistry({ agentId: "slugger" }).registry
+    const leakedBody = "DO-NOT-LOG-BODY-CONTENT"
+    const stdout: string[] = []
+    const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation((chunk: any) => {
+      stdout.push(String(chunk))
+      return true
+    })
+    const server = createMailIngressSmtpServer({
+      registryProvider: new StaticRegistryProvider(registry),
+      store: {
+        async putRawMessage() {
+          throw new Error(`store failed after reading ${leakedBody}`)
+        },
+        async getMessage() {
+          return null
+        },
+        async readRawPayload() {
+          return null
+        },
+      },
+      tls: defaultTlsOptions(),
+    } satisfies SmtpProductionOptions)
+    const port = await listenSmtp(server)
+    try {
+      const transcript = await smtpExchange(port, [
+        { send: "EHLO localhost\r\n", expect: /^250/m },
+        { send: "MAIL FROM:<ari@mendelow.me>\r\n", expect: /^250/m },
+        { send: "RCPT TO:<slugger@ouro.bot>\r\n", expect: /^250/m },
+        { send: "DATA\r\n", expect: /^354/m },
+        { send: `From: ari@mendelow.me\r\nTo: slugger@ouro.bot\r\nSubject: Hi\r\n\r\n${leakedBody}\r\n.\r\n`, expect: /^[45]\d\d/m },
+        { send: "QUIT\r\n", expect: /^221/m },
+      ])
+      expect(transcript).toMatch(/^451/m)
+      expect(transcript).not.toContain(leakedBody)
+      expect(stdout.join("")).not.toContain(leakedBody)
+      expect(stdout.join("")).toContain("smtp data handling failed")
+    } finally {
+      stdoutSpy.mockRestore()
       await closeSmtp(server)
     }
   })
