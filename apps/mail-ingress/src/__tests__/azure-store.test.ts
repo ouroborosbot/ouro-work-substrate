@@ -77,18 +77,33 @@ describe("AzureBlobMailroomStore", () => {
       privateEnvelope,
       classification: { placement: "screener", trustReason: "new sender", candidate: true },
     })
-    const second = await store.putRawMessage({
+    expect(first.created).toBe(true)
+    expect([...serviceClient.container.blobs.keys()].some((name) => {
+      return name.startsWith("message-index/slugger/") && name.endsWith(`__${first.message.id}.json`)
+    })).toBe(true)
+    for (const name of [...serviceClient.container.blobs.keys()]) {
+      if (name.startsWith("message-index/slugger/") && name.endsWith(`__${first.message.id}.json`)) {
+        serviceClient.container.blobs.delete(name)
+      }
+    }
+    const storedMessageBlob = serviceClient.container.blobs.get(`messages/${first.message.id}.json`)
+    if (storedMessageBlob?.data) {
+      const parsed = JSON.parse(storedMessageBlob.data.toString("utf-8")) as Record<string, unknown>
+      storedMessageBlob.data = Buffer.from(`${JSON.stringify({ ...parsed, receivedAt: "not-a-date" }, null, 2)}\n`)
+    }
+    const healed = await store.putRawMessage({
       resolved,
       envelope: { mailFrom: "ari@mendelow.me", rcptTo: ["slugger@ouro.bot"] },
       rawMime,
       privateEnvelope,
       classification: { placement: "screener", trustReason: "new sender", candidate: true },
     })
-
-    expect(first.created).toBe(true)
-    expect(second.created).toBe(false)
-    expect(second.message.id).toBe(first.message.id)
+    expect(healed.created).toBe(false)
+    expect(healed.message.id).toBe(first.message.id)
     expect(serviceClient.container.createCalls).toBe(1)
+    expect([...serviceClient.container.blobs.keys()].some((name) => {
+      return name.startsWith("message-index/slugger/") && name.endsWith(`__${first.message.id}.json`)
+    })).toBe(true)
 
     const message = await store.getMessage(first.message.id) as StoredMailMessage
     const rawPayload = await store.readRawPayload(first.message.rawObject) as EncryptedPayload
