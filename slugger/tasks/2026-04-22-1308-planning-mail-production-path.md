@@ -60,7 +60,8 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - [ ] Re-running setup is idempotent: no duplicate registry records, no lost private keys, clear "already configured" output, and repair guidance when hosted registry, local registry, vault config, or Blob settings disagree.
 - [ ] Key-loss recovery is explicit: the system detects missing vault-held private keys, does not silently regenerate incompatible keys, and offers a human-approved rotation/repair path with a warning that old encrypted mail needs the old key or vault backup.
 - [ ] The harness and work-protocol models stay synchronized by dependency, generator, or contract tests; outbound statuses and source-grant alias semantics cannot drift silently between repos.
-- [ ] The harness has a production generic vault item/credential surface for non-runtime credentials, with stable item names/paths, hidden secret entry, optional public fields, editable notes, tags/folder-ish organization, timestamps/provenance, metadata-only status/list, reserved-item guardrails, docs, and tests. `vault ops porkbun` remains only a deprecated compatibility alias over an ordinary vault item.
+- [x] The harness has a production generic vault item/credential surface for non-runtime credentials, with stable item names/paths, hidden secret entry, optional public fields, editable notes, tags/folder-ish organization, timestamps/provenance, metadata-only status/list, reserved-item guardrails, docs, and tests. `vault ops porkbun` remains only a deprecated compatibility alias over an ordinary vault item.
+- [ ] The harness vault-item branch is merged, published through the harness npm release lane, and installed locally before DNS/mail workflow code depends on the new surface.
 - [ ] DNS/mail production workflows use explicit non-secret bindings that reference vault item paths; no code or docs treat the referenced item as an ops credential, authority, Porkbun credential, DNS credential, or provider-shaped ontology.
 - [ ] Existing `ouro.bot` DNS records are backed up before changes; DNS automation has dry-run, apply, verify, and rollback modes.
 - [ ] `mx1.ouro.bot` resolves to the proven production inbound edge, and `ouro.bot` MX no longer points at `ouro-bot.mail.protection.outlook.com` before live mail is declared ready.
@@ -79,6 +80,8 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - [ ] Outbound delivery events or provider callbacks update auditable records so provider acceptance, delivery, bounce, suppression, quarantine/spam filtering, and failure are distinguishable.
 - [ ] SPF, DKIM, DKIM2 where required, and DMARC records for the selected sender domain are documented, applied through the DNS workflow, and verified after propagation.
 - [ ] Azure deployment, GitHub Actions, secrets/variables, and runbooks support the final inbound and outbound shape without local one-off production drift.
+- [ ] Hosted substrate packaging/deployment is documented as private commit-addressed Docker images plus Bicep/GitHub Actions deploy, while any shared protocol exception is handled by a package or contract release gate.
+- [x] Branch protections for both `ouro-work-substrate` and `ouroboros` require the intended green checks, enforce admins, require linear history, and require conversation resolution.
 - [ ] Live smoke test proves: hosted health, Mail Control auth, mailbox/source ensure, SMTP port 25 accept/reject, encrypted Blob write, vault decryption, Screener/Imbox placement, HEY forwarded mail, confirmed outbound send, delivery event reconciliation, and Ouro Outlook audit.
 - [ ] `npm run ci:local` passes in `ouro-work-substrate`.
 - [ ] The relevant harness CI/test command passes in `/Users/arimendelow/Projects/ouroboros-agent-harness`.
@@ -103,6 +106,7 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - Agent-native mail is Slugger's own correspondence at `slugger@ouro.bot`; delegated HEY mail is Ari's mailbox content copied into Slugger's work substrate under owner/source provenance.
 - Full-moon includes policy-governed autonomous native-agent sending. This does not imply sending as Ari, sending from delegated source aliases, or bypassing trust/rate/audit controls.
 - Work may span `ouro-work-substrate` and the local harness checkout at `/Users/arimendelow/Projects/ouroboros-agent-harness` / `ouroborosbot/ouroboros`; do not constrain implementation to the hosted repo if the local agent experience needs harness changes.
+- Packaging and deployment are three coordinated release lanes: harness CLI/runtime changes ship through the npm-published `@ouro.bot/cli` / `ouro.bot` product lane; hosted substrate apps ship as private commit-addressed Docker images deployed by Bicep/GitHub Actions; shared mail protocol semantics must either become a consumed package boundary or be protected by generated/schema contract tests.
 - `ouro.bot` is the intended Ouro Work mail domain.
 - The current HEY bounce is expected: `ouro.bot` MX resolves to `ouro-bot.mail.protection.outlook.com`, and that hostname currently has no A/CNAME answer.
 - The current Microsoft 365-shaped TXT/SPF records are not a constraint to preserve; back them up before changing them.
@@ -121,6 +125,7 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - Current outbound records store `text` directly in outbound JSON; production outbound needs a privacy review before writing sent bodies to Blob-backed stores.
 - Mail private keys remain in the owning agent vault, not Blob Storage, GitHub, Container Apps, logs, or scratch docs.
 - The harness already has agent-facing `credential_*` tools and a generic Bitwarden/Vaultwarden `CredentialStore`, but the human-facing CLI overfit on `vault ops porkbun` and harness origin added `Operational Credentials` plus `ops-credential/porkbun` as first-class vocabulary. First production work must fix those stronger signals so a future agent sees vault item/credential as the primitive: stable item name/path, secret material, optional public fields, freeform notes, organization, timestamps/provenance, and no assumed use.
+- Branch protection verification on 2026-04-22: `ouro-work-substrate/main` requires strict `test` and `coverage`, enforces admins, requires linear history, and requires conversation resolution; `ouroboros/main` requires `coverage`, enforces admins, requires linear history, and requires conversation resolution.
 
 ## Context / References
 - `AGENTS.md`: trust invariants, repo boundary, human-only gates, and task workflow.
@@ -129,10 +134,13 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - `docs/agent-account-lifecycle.md`: desired ensure flow and recovery posture.
 - `docs/deployment-story.md`: Phase 3/5 are still the open production ingress and mail edge decisions.
 - `docs/operations.md`: smoke tests, deploy path, rollback, and human-only gates.
+- `.github/workflows/deploy-azure.yml`: post-merge deployment hook triggered by successful CI on `main`; checks out the exact tested SHA, skips docs-only changes, builds/pushes commit-tagged Docker images, and deploys Bicep.
 - `infra/azure/main.bicep`: mail ingress already supports parameterized SMTP target/exposed ports through Container Apps additional TCP port mappings.
 - `apps/mail-control/src/server.ts`: production ensure endpoint is `POST /v1/mailboxes/ensure`; returns `mailboxAddress`, `sourceAlias`, generated private keys, and registry revision.
 - `apps/mail-ingress/src/server.ts`: current SMTP server disables `AUTH` and `STARTTLS`; production TLS posture is a required code change.
 - `packages/work-protocol/src/mail.ts`: current outbound status is only `draft | sent | failed`; full-moon outbound requires a richer model.
+- `packages/work-protocol/package.json`: currently `private: true`; cross-repo protocol drift should be closed by making this a consumed package or adding generated/schema contract tests.
+- `slugger/tasks/2026-04-22-1308-doing-mail-production-path/full-moon-work-suite-refresh.md`: fresh post-Unit-0c work-suite refresh covering packaging/deployment lanes, branch protection facts, and shared-contract risk.
 - `/Users/arimendelow/AgentBundles/slugger.ouro/tasks/one-shots/2026-04-20-2100-email-access-research-proposal/proposal.md`: original Mailroom research; HEY lacks programmatic access, MBOX import is bootstrap/archive, forwarding is useful but not a source of truth.
 - `/Users/arimendelow/AgentBundles/slugger.ouro/tasks/one-shots/2026-04-20-2319-proposal-agent-native-mail.md`: agent-native `@ouro.bot` mail proposal; Mail is a sense, source aliases are delegated copies, and native/delegated content must remain labeled differently everywhere.
 - `/Users/arimendelow/AgentBundles/slugger.ouro/tasks/one-shots/2026-04-21-1434-ideation-agent-mail-user-stories.md`: explicit two-story user-story map for native agent mail and delegated human mail source; Screener/discard/recovery semantics.
@@ -172,6 +180,9 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
   - Live test mail: human can send or approve test messages from HEY and at least one outside mailbox, and can confirm any provider/domain verification emails that require manual action.
   - Secret hygiene: secrets go only into agent vault, GitHub Actions secrets, Azure secrets/Key Vault/Container App secrets, macOS Keychain, or another explicit secret store; never into chat, docs, commits, PR bodies, or logs.
 - Recommended execution shape after approval: multiple narrow PRs under this full-moon plan, roughly harness vault item surface correction, contract/protocol sync, hosted provisioning integration, inbound edge/TLS/DNS automation, harness hosted reader and setup recovery, HEY onboarding automation, outbound provider/events, docs/smoke/deploy. The doing doc should define exact units before execution.
+- Unit 0a-0c completed the harness vault-item surface on branch `slugger/vault-item-surface` at `4dec8d50c9f5c05986352fb48616b9ceb229e563`: focused tests, `npx tsc --noEmit`, full `npm run test:coverage`, nerves audit, and `npm run release:preflight` all passed after the alpha.466 version/changelog bump. Remaining work for that slice is PR, merge, publish, and install.
+- Packaging decision after fresh work-suite pass: do not npm-publish the deployable hosted substrate apps. Use GitHub Actions, Bicep, and commit-tagged Container App images as the production lane. The likely exception is shared protocol: either publish/consume `@ouro/work-protocol` or add a generated/schema contract gate so the harness and substrate cannot drift.
+- The full-moon plan is now explicitly "merged + released/deployed + installed + live-smoked"; code merged but not released/installed/deployed does not satisfy production readiness.
 
 ## Progress Log
 - 2026-04-22 13:09 Created
@@ -185,3 +196,5 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - 2026-04-22 17:36 Promoted the harness vault item surface fix to first-order scope before mail/DNS implementation
 - 2026-04-22 17:45 Rewrote credential model to remove remaining provider/access ontology: primitive is vault item/credential with no assumed use; workflows bind to it outside the item; notes are never parsed
 - 2026-04-22 17:51 Added a source-grounded vault surface documentation map: existing harness primitive is general, but origin/help/docs currently teach `Operational Credentials`, `ops-credential/porkbun`, and domain-shaped vocabulary; first PR must make `ouro vault item` canonical across docs/help/tests and keep Porkbun as template/deprecated alias only
+- 2026-04-22 18:49 Completed harness vault-item surface implementation and verification through full coverage and release preflight on branch `slugger/vault-item-surface`; the slice still needs PR, merge, publish, and local install.
+- 2026-04-22 18:52 Ran a fresh full-moon work-suite refresh after the vault correction; promoted packaging/deployment lanes, shared protocol drift protection, and branch protection evidence into the production plan.
