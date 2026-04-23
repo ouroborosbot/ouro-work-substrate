@@ -58,6 +58,6 @@ The environment subject is required because the deploy workflow uses a GitHub En
 
 ## DNS
 
-For production mail, point the relevant MX record at the Container Apps environment endpoint only after a live ingress proof and final human confirmation. HEY forwarding/catch-all setup remains human-at-keyboard.
+For production mail, point the relevant MX record at the Container Apps environment endpoint only after a live ingress proof and operator acceptance for this private rollout. HEY forwarding/catch-all setup remains human-at-keyboard.
 
 Until then, use the proof SMTP port and direct test sends. The system should prove mail routing, encrypted storage, and agent-side decryption before real inbound mail depends on it.
