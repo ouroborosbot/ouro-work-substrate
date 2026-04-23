@@ -19,6 +19,11 @@ import {
 } from "@ouro/work-protocol"
 import { logEvent } from "./log"
 
+const MESSAGE_INDEX_PREFIX = "message-index"
+const MESSAGE_INDEX_SORT_MAX_MS = 9_999_999_999_999
+const MESSAGE_INDEX_SORT_WIDTH = 13
+const MESSAGE_INDEX_NO_SOURCE = "~"
+
 export interface MailroomStore {
   putRawMessage(input: {
     resolved: ResolvedMailAddress
@@ -58,6 +63,33 @@ function blobText(value: unknown): Buffer {
 async function downloadJson<T>(blob: { exists(): Promise<boolean>; downloadToBuffer(): Promise<Buffer> }): Promise<T | null> {
   if (!await blob.exists()) return null
   return JSON.parse((await blob.downloadToBuffer()).toString("utf-8")) as T
+}
+
+function encodeSourceToken(source?: string): string {
+  return source ? encodeURIComponent(source.toLowerCase()) : MESSAGE_INDEX_NO_SOURCE
+}
+
+function parseSortMs(receivedAt: string): number {
+  const parsed = Date.parse(receivedAt)
+  if (!Number.isFinite(parsed)) return 0
+  return Math.max(0, Math.min(MESSAGE_INDEX_SORT_MAX_MS, parsed))
+}
+
+function messageIndexBlobName(message: Pick<StoredMailMessage, "id" | "agentId" | "compartmentKind" | "placement" | "source" | "receivedAt">): string {
+  const sortKey = String(MESSAGE_INDEX_SORT_MAX_MS - parseSortMs(message.receivedAt)).padStart(MESSAGE_INDEX_SORT_WIDTH, "0")
+  return `${MESSAGE_INDEX_PREFIX}/${message.agentId}/${sortKey}__${message.compartmentKind}__${message.placement}__${encodeSourceToken(message.source)}__${message.id}.json`
+}
+
+function messageIndexRecord(message: Pick<StoredMailMessage, "id" | "agentId" | "compartmentKind" | "placement" | "source" | "receivedAt">): Record<string, unknown> {
+  return {
+    schemaVersion: 1,
+    id: message.id,
+    agentId: message.agentId,
+    compartmentKind: message.compartmentKind,
+    placement: message.placement,
+    source: message.source ?? null,
+    receivedAt: message.receivedAt,
+  }
 }
 
 export class FileMailroomStore implements MailroomStore {
@@ -132,13 +164,21 @@ export class AzureBlobMailroomStore implements MailroomStore {
     return this.container.getBlockBlobClient(`candidates/${id}.json`)
   }
 
+  private messageIndexBlob(name: string) {
+    return this.container.getBlockBlobClient(name)
+  }
+
   async putRawMessage(input: Parameters<MailroomStore["putRawMessage"]>[0]): Promise<{ created: boolean; message: StoredMailMessage }> {
     await this.ensureContainer()
     const { message, rawPayload, candidate } = buildStoredMailMessage(input)
     const existing = await downloadJson<StoredMailMessage>(this.messageBlob(message.id))
-    if (existing) return { created: false, message: existing }
+    if (existing) {
+      await this.messageIndexBlob(messageIndexBlobName(existing)).uploadData(blobText(messageIndexRecord(existing)))
+      return { created: false, message: existing }
+    }
     await this.rawBlob(message.rawObject).uploadData(blobText(rawPayload))
     await this.messageBlob(message.id).uploadData(blobText(message))
+    await this.messageIndexBlob(messageIndexBlobName(message)).uploadData(blobText(messageIndexRecord(message)))
     if (candidate) await this.candidateBlob(candidate.id).uploadData(blobText(candidate))
     return { created: true, message }
   }

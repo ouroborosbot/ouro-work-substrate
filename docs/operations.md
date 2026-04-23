@@ -170,6 +170,14 @@ Run this after a meaningful deployment. Do not skip the encryption/decryption pr
 17. Confirm native mail lands in Screener and delegated HEY alias mail lands in Imbox with owner/source provenance.
 18. Inspect Mail Ingress logs for body-safe events. Logs may include addresses, limits, and safe error categories; they must not include raw mail bodies, private MIME payloads, TLS private keys, provider credentials, or vault unlock material.
 
+If a large legacy delegated import made hosted `mail_recent`, Outlook, or MCP mail reads feel sticky, run:
+
+```bash
+ouro mail backfill-indexes --agent <agent>
+```
+
+That rebuilds hosted message-index blobs in place without reimporting mail and is safe to rerun. New inbound mail now writes its hosted index eagerly; this command is the repair path for older mailboxes.
+
 For Slugger, the expected public addresses are:
 
 - Native: `slugger@ouro.bot`.
