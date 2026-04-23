@@ -1082,8 +1082,7 @@ export function rotatePublicMailboxRegistryKeys(input: {
   let rotatedSourceGrant = false
 
   if (rotateMailbox && !ensured.addedMailbox) {
-    const mailbox = registry.mailboxes.find((entry) => entry.agentId === agentId)
-    if (!mailbox) throw new Error(`mailbox ${agentId}@${domain} was not found after ensure`)
+    const mailbox = registry.mailboxes.find((entry) => entry.agentId === agentId)!
     const nextKey = generateMailKeyPair(`${agentId}-native`)
     mailbox.keyId = nextKey.keyId
     mailbox.publicKeyPem = nextKey.publicKeyPem
@@ -1098,8 +1097,7 @@ export function rotatePublicMailboxRegistryKeys(input: {
       const sourceGrant = registry.sourceGrants.find((grant) =>
         grant.agentId === agentId &&
         normalizeMailAddress(grant.ownerEmail) === ownerEmail &&
-        grant.source.toLowerCase() === source)
-      if (!sourceGrant) throw new Error(`source grant ${source} for ${ownerEmail} was not found after ensure`)
+        grant.source.toLowerCase() === source)!
       const nextKey = generateMailKeyPair(`${agentId}-${source}`)
       sourceGrant.keyId = nextKey.keyId
       sourceGrant.publicKeyPem = nextKey.publicKeyPem

@@ -453,6 +453,78 @@ describe("mail control server", () => {
         body: JSON.stringify({ agentId: "slugger" }),
       })
       expect(noTarget.status).toBe(400)
+
+      const badBoolean = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/rotate-keys`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ agentId: "slugger", rotateMailbox: "yes" }),
+      })
+      expect(badBoolean.status).toBe(400)
+
+      const badReason = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/rotate-keys`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ agentId: "slugger", rotateMailbox: true, reason: "x".repeat(257) }),
+      })
+      expect(badReason.status).toBe(400)
+    } finally {
+      server.close()
+    }
+  })
+
+  it("rotates by creating missing native/source records without requiring hosted coordinate output", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-control-rotate-create-"))
+    const server = createMailControlServer({
+      store: new FileMailRegistryStore(path.join(dir, "registry.json"), "ouro.bot"),
+      adminToken: "secret",
+      allowedEmailDomain: "ouro.bot",
+    })
+    const port = await listen(server)
+    try {
+      const native = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/rotate-keys`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ agentId: "clio", rotateMailbox: true }),
+      })
+      const nativeBody = await native.json() as Record<string, unknown>
+      expect(native.status).toBe(200)
+      expect(nativeBody.addedMailbox).toBe(true)
+      expect(nativeBody.rotatedMailbox).toBe(false)
+      expect(nativeBody.sourceAlias).toBeNull()
+      expect(nativeBody).not.toHaveProperty("sourceGrant")
+      expect(nativeBody).not.toHaveProperty("publicRegistry")
+      expect(nativeBody).not.toHaveProperty("blobStore")
+
+      const source = await fetch(`http://127.0.0.1:${port}/v1/mailboxes/rotate-keys`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          agentId: "clio",
+          ownerEmail: "ari@mendelow.me",
+          source: "calendar",
+          sourceTag: "calendar",
+          rotateSourceGrant: true,
+        }),
+      })
+      const sourceBody = await source.json() as Record<string, unknown>
+      expect(source.status).toBe(200)
+      expect(sourceBody.addedMailbox).toBe(false)
+      expect(sourceBody.addedSourceGrant).toBe(true)
+      expect(sourceBody.rotatedSourceGrant).toBe(false)
+      expect(sourceBody.sourceAlias).toBe("me.mendelow.ari.calendar.clio@ouro.bot")
+      expect(sourceBody.sourceGrant).toEqual(expect.objectContaining({ source: "calendar" }))
     } finally {
       server.close()
     }

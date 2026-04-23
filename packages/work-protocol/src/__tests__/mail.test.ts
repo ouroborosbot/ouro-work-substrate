@@ -209,6 +209,40 @@ describe("work protocol mail", () => {
       agentId: "slugger",
       registry: first.registry,
     })).toThrow("at least one key rotation target")
+
+    const createdNative = rotatePublicMailboxRegistryKeys({
+      agentId: "clio",
+      rotateMailbox: true,
+    })
+    expect(createdNative.addedMailbox).toBe(true)
+    expect(createdNative.rotatedMailbox).toBe(false)
+    expect(createdNative.sourceAlias).toBeNull()
+    expect(Object.keys(createdNative.generatedPrivateKeys)).toHaveLength(1)
+
+    const createdSource = rotatePublicMailboxRegistryKeys({
+      agentId: "clio",
+      ownerEmail: "ari@mendelow.me",
+      source: "calendar",
+      sourceTag: "calendar",
+      rotateSourceGrant: true,
+    })
+    expect(createdSource.addedMailbox).toBe(true)
+    expect(createdSource.addedSourceGrant).toBe(true)
+    expect(createdSource.rotatedSourceGrant).toBe(false)
+    expect(createdSource.sourceAlias).toBe("me.mendelow.ari.calendar.clio@ouro.bot")
+
+    const fallbackAgent = rotatePublicMailboxRegistryKeys({
+      agentId: "!!!",
+      rotateMailbox: true,
+    })
+    expect(fallbackAgent.mailboxAddress).toBe("agent@ouro.bot")
+
+    const defaultSource = rotatePublicMailboxRegistryKeys({
+      agentId: "slugger",
+      ownerEmail: "ari@mendelow.me",
+      rotateSourceGrant: true,
+    })
+    expect(defaultSource.registry.sourceGrants[0]?.source).toBe("hey")
   })
 
   it("resolves delegated addresses and rejects disabled or orphaned grants", () => {
