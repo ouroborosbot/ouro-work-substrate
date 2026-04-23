@@ -133,15 +133,16 @@ Run this after a meaningful deployment. Do not skip the encryption/decryption pr
 4. Verify unauthenticated Mail Control and Vault Control mutations return `401`.
 5. Call `POST /v1/mailboxes/ensure` on Mail Control with a bearer token.
 6. Verify first creation returns private keys, public mailbox/source records, hosted registry/Blob coordinates, and that repeated ensure calls return zero new keys while preserving the same public key ids.
-7. Check SMTP `EHLO` on public port `25` from a network that can originate outbound SMTP. Many residential, hotel, and cloud networks block outbound port `25`; when that happens, use an external TCP checker for reachability and a real mailbox-provider send for full SMTP delivery proof.
-8. When TLS secrets are configured, verify `STARTTLS` is advertised; `AUTH` must not be advertised.
-9. Verify `SIZE` is advertised and a declared oversized `MAIL FROM SIZE=` is rejected before `DATA`.
-10. Verify the recipient limit rejects excess recipients in one transaction.
-11. Send accepted SMTP mail through the current public edge. In proof deployments that intentionally expose a nonstandard port, record that port explicitly in the artifact.
-12. Verify accepted mail appears in Blob Storage as encrypted mail.
-13. Decrypt through the private keys stored in the owning agent vault or, during first proof only, the one-time keys returned by Mail Control.
-14. Confirm native mail lands in Screener and delegated HEY alias mail lands in Imbox with owner/source provenance.
-15. Inspect Mail Ingress logs for body-safe events. Logs may include addresses, limits, and safe error categories; they must not include raw mail bodies, private MIME payloads, TLS private keys, provider credentials, or vault unlock material.
+7. If ensure reports public key ids that are absent from the owning agent vault, repair through harness setup with `ouro account ensure --rotate-missing-mail-keys ...`. That calls `POST /v1/mailboxes/rotate-keys` only for missing key ids and stores the new one-time private keys. Rotation cannot recover mail already encrypted to a lost private key.
+8. Check SMTP `EHLO` on public port `25` from a network that can originate outbound SMTP. Many residential, hotel, and cloud networks block outbound port `25`; when that happens, use an external TCP checker for reachability and a real mailbox-provider send for full SMTP delivery proof.
+9. When TLS secrets are configured, verify `STARTTLS` is advertised; `AUTH` must not be advertised.
+10. Verify `SIZE` is advertised and a declared oversized `MAIL FROM SIZE=` is rejected before `DATA`.
+11. Verify the recipient limit rejects excess recipients in one transaction.
+12. Send accepted SMTP mail through the current public edge. In proof deployments that intentionally expose a nonstandard port, record that port explicitly in the artifact.
+13. Verify accepted mail appears in Blob Storage as encrypted mail.
+14. Decrypt through the private keys stored in the owning agent vault or, during first proof only, the one-time keys returned by Mail Control.
+15. Confirm native mail lands in Screener and delegated HEY alias mail lands in Imbox with owner/source provenance.
+16. Inspect Mail Ingress logs for body-safe events. Logs may include addresses, limits, and safe error categories; they must not include raw mail bodies, private MIME payloads, TLS private keys, provider credentials, or vault unlock material.
 
 For Slugger, the expected public addresses are:
 
