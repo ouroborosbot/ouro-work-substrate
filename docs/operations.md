@@ -84,7 +84,9 @@ The second one matters because the deploy workflow uses the `prod` GitHub Enviro
 
 ## Deploy
 
-Runtime, infrastructure, and workflow changes merged to `main` deploy automatically after the `CI` workflow completes successfully. Docs-only changes pass CI but skip Azure rollout. When deployment is needed, the workflow checks out the exact CI-tested commit, builds all service images, pushes them to ACR, and applies the Container Apps Bicep deployment.
+Runtime, infrastructure, and workflow changes merged to `main` deploy automatically after the `CI` workflow completes successfully. The deploy workflow checks the commit-tagged `mail-ingress` image currently running in Azure and compares that deployed SHA with the exact CI-tested commit. It deploys if runtime, infrastructure, or workflow files changed anywhere in that range, or if the current deployed image cannot be inspected. It skips Azure only when the current deployed image is an ancestor of the tested commit and all changes since that image are documentation-only.
+
+When deployment is needed, the workflow checks out the exact CI-tested commit, builds all service images, pushes them to ACR with that commit SHA as the tag, and applies the Container Apps Bicep deployment.
 
 Use manual deployment for intentional redeploys, token rotation, or proof-port changes:
 
@@ -206,8 +208,9 @@ Prefer evidence over vibes:
 1. Check GitHub run logs.
 2. Check Container App health.
 3. Check latest deployment outputs.
-4. Check whether Mail Control and Mail Ingress agree on registry counts.
-5. Check Blob records without printing private mail content.
-6. Check vault-held private keys on the local agent side.
+4. If Azure skipped unexpectedly, compare the current Container App image tag with the CI-tested commit and inspect the `Auto deploy decision` summary. A docs-only head commit is not enough reason to skip; only the full range since the deployed image may be docs-only.
+5. Check whether Mail Control and Mail Ingress agree on registry counts.
+6. Check Blob records without printing private mail content.
+7. Check vault-held private keys on the local agent side.
 
 Leave a note in the docs when you discover a new production edge. The next agent should not have to meet the same sharp corner by surprise.
