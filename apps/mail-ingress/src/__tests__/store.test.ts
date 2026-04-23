@@ -32,10 +32,24 @@ describe("mail ingress store", () => {
       envelope: { mailFrom: "travel@example.com", rcptTo: [alias] },
       rawMime: raw,
       privateEnvelope: parsed.privateEnvelope,
+      ingest: {
+        schemaVersion: 1,
+        kind: "mbox-import",
+        importedAt: "2026-04-22T20:00:00.000Z",
+        sourceFreshThrough: "2026-04-22T19:00:00.000Z",
+        attentionSuppressed: true,
+      },
       ...(parsed.authentication ? { authentication: parsed.authentication } : {}),
     })
 
     expect(result.accepted).toHaveLength(1)
+    expect(result.accepted[0]?.ingest).toEqual({
+      schemaVersion: 1,
+      kind: "mbox-import",
+      importedAt: "2026-04-22T20:00:00.000Z",
+      sourceFreshThrough: "2026-04-22T19:00:00.000Z",
+      attentionSuppressed: true,
+    })
     const duplicate = await ingestRawMailToStore({
       registry: ensured.registry,
       store,

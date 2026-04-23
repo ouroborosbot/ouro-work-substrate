@@ -11,6 +11,7 @@ import {
   type MailAuthenticationSummary,
   type MailClassification,
   type MailEnvelopeInput,
+  type MailIngestProvenance,
   type MailroomRegistry,
   type PrivateMailEnvelope,
   type ResolvedMailAddress,
@@ -25,6 +26,7 @@ export interface MailroomStore {
     rawMime: Buffer
     privateEnvelope: PrivateMailEnvelope
     receivedAt?: Date
+    ingest?: MailIngestProvenance
     classification: MailClassification
     authentication?: MailAuthenticationSummary
   }): Promise<{ created: boolean; message: StoredMailMessage }>
@@ -159,6 +161,7 @@ export async function ingestRawMailToStore(input: {
   rawMime: Buffer
   privateEnvelope: PrivateMailEnvelope
   receivedAt?: Date
+  ingest?: MailIngestProvenance
   authentication?: MailAuthenticationSummary
 }): Promise<{ accepted: StoredMailMessage[]; rejectedRecipients: string[] }> {
   const accepted: StoredMailMessage[] = []
@@ -181,6 +184,7 @@ export async function ingestRawMailToStore(input: {
       rawMime: input.rawMime,
       privateEnvelope: input.privateEnvelope,
       receivedAt: input.receivedAt,
+      ...(input.ingest ? { ingest: input.ingest } : {}),
       classification,
       ...(input.authentication ? { authentication: input.authentication } : {}),
     })
