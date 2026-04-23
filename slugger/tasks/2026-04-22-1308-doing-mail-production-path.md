@@ -111,7 +111,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Coverage artifacts and cleanup commits.
 **Acceptance**: 100% coverage on new/changed contract code and focused tests green in both repos.
 
-### ⬜ Unit 2a: Hosted Provisioning Truth — Tests
+### ✅ Unit 2a: Hosted Provisioning Truth — Tests
 **What**: Write failing tests for production `ouro account ensure` / `ouro connect mail` calling hosted Mail Control, storing returned keys in vault, configuring Blob reader coordinates, preserving existing keys, and detecting hosted/local/vault drift.
 **Output**: Red harness and hosted control-plane tests.
 **Acceptance**: Tests fail where setup can still be local-only or drift is not recoverable.
@@ -256,3 +256,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 19:18 Unit 1a complete: added red tests in substrate and harness for shared mailbox provenance, access-log provenance, attention summaries, outbound native-send authority, and owner-scoped Outlook delegated source folders. Evidence lives in `unit1a-red-tests.md`.
 - 2026-04-22 19:37 Unit 1b complete: implemented shared/harness two-lane provenance descriptors, access-log and attention provenance, native outbound authority fields, Outlook owner-scoped source folders, legacy fallbacks, and 100% coverage. Evidence lives in `unit1b-implementation.md`.
 - 2026-04-22 19:48 Unit 1c complete: added canonical substrate mail provenance contract JSON, harness vendored contract drift tests, docs for the private-package contract lane, and 100% coverage evidence. Evidence lives in `unit1c-coverage-contract.md`.
+- 2026-04-22 19:53 Unit 2a complete: added red hosted provisioning tests for Mail Control public records/Blob coordinates, harness production setup calling hosted Mail Control, key preservation, and hosted registry/vault drift detection. Evidence lives in `unit2a-red-tests.md`.
