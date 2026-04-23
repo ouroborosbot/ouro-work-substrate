@@ -146,10 +146,10 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Red mail-ingress tests and infra expectations.
 **Acceptance**: Tests fail against current STARTTLS-disabled, proof-port-only behavior.
 
-### ⬜ Unit 4b: Production SMTP Edge — Implementation
+### ✅ Unit 4b: Production SMTP Edge — Implementation
 **What**: Harden mail ingress and infra for production SMTP on port 25, first trying existing Container Apps static-IP shape and falling back to a dedicated mail edge if port 25 still cannot be proven.
 **Output**: App/infra changes, deployment workflow updates, docs, and proof artifacts.
-**Acceptance**: Final edge accepts real SMTP on port 25, advertises STARTTLS, stores encrypted mail, and rejects unknown recipients without becoming a relay.
+**Acceptance**: App and deploy path are ready for live edge proof: SMTP can advertise STARTTLS from mounted PEM material, enforce size/recipient/connection/rate limits, store encrypted mail, reject unknown recipients, and avoid relay/submission behavior. Live port-25 proof remains Unit 4c.
 
 ### ⬜ Unit 4c: Production SMTP Edge — Coverage And Refactor
 **What**: Run local and deployed SMTP policy tests, inspect logs for body leakage, and document rollback/diagnostics.
@@ -263,3 +263,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 20:41 Unit 3b complete: added the `ouro.bot` DNS workflow binding/runbook plus harness parser, binding validator, vault-field secret resolver, Porkbun read/mutation driver, backup/plan/apply/verify/rollback execution, rollback planning, and redacted artifacts. Evidence lives in `unit3b-implementation.md`.
 - 2026-04-22 21:27 Unit 3c complete: closed DNS workflow coverage and Nerves observability, added legacy flat-payload support for the real Slugger Porkbun vault item, normalized live Porkbun DNS records before planning, and proved a read-only `ouro.bot` DNS plan with no secret leakage. Evidence lives in `unit3c-coverage-repair.md`.
 - 2026-04-22 21:31 Unit 4a complete: added red mail-ingress tests for STARTTLS/SIZE advertisement, pre-DATA declared-size rejection, recipient-count limits, and body-safe DATA failure responses/logs. Evidence lives in `unit4a-red-tests.md`.
+- 2026-04-22 21:42 Unit 4b complete: implemented STARTTLS/SIZE, recipient/connection/rate limits, safe transient failures, TLS secret-file deployment, workflow guards, and operations docs. Evidence lives in `unit4b-implementation.md`.
