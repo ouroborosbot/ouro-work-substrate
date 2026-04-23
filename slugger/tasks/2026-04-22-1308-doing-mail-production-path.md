@@ -23,7 +23,9 @@ Bring Agent Mail to full production shape across Ouro Work Substrate and the Our
 - [ ] Setup and repair are idempotent across hosted registry, local registry, vault config, source grants, keys, and Blob settings.
 - [ ] Native agent mail and delegated human mailbox source stay separate in protocol records, storage compartments, access tools, Outlook, audit, policy, recovery, and prompt/sense context.
 - [x] The harness vault surface is corrected before DNS/mail implementation: generic human-facing vault item commands exist, notes are first-class, `ouro connect` remains harness-managed only, and templates/compatibility aliases never create new credential species.
+- [ ] The harness vault-item branch is merged, published through the harness npm release lane, and installed locally before DNS/mail workflow code depends on the new surface.
 - [ ] DNS/mail production workflows consume explicit non-secret bindings that reference generic vault item paths; no code or docs treat the referenced item as an ops credential, authority, Porkbun credential, DNS credential, or provider-shaped ontology.
+- [ ] Shared mail protocol semantics are protected by a consumed `@ouro/work-protocol` package boundary or generated/schema contract tests so harness and substrate cannot drift silently.
 - [ ] Production MX points to a proven port-25 edge with STARTTLS, size limits, transient/permanent failures, rate limits, recipient limits, and body-safe observability.
 - [ ] Native live mail to `slugger@ouro.bot` reaches encrypted Blob storage, decrypts through Slugger's vault key, enters the right Imbox/Screener state, and behaves as a body-safe sense.
 - [ ] Ari's delegated HEY source is backfilled from MBOX with provenance/freshness and receives all future forwarded mail at `me.mendelow.ari.slugger@ouro.bot` with owner/source labels everywhere.
@@ -33,6 +35,8 @@ Bring Agent Mail to full production shape across Ouro Work Substrate and the Our
 - [ ] Delegated human mail never grants send-as-human authority by default; follow-ups based on Ari's HEY mail send from the agent identity unless a future delegated-send product is approved.
 - [ ] SPF, DKIM/DKIM2 where required, and DMARC records are applied and verified for the chosen sender domain.
 - [ ] Recovery docs/tooling cover DNS, port 25, Mail Control, vault/key drift, HEY forwarding, Blob access, decryption, wrong placement/provenance, outbound provider failures, and delivery events.
+- [ ] Hosted substrate packaging/deployment is documented and verified as private commit-addressed Docker images plus Bicep/GitHub Actions deploy, not an npm package for deployable services.
+- [x] Branch protections for `ouro-work-substrate` and `ouroboros` require the intended green checks, enforce admins, require linear history, and require conversation resolution.
 - [ ] Live smoke proves hosted health, mailbox/source ensure, SMTP accept/reject, encryption/decryption, native Screener/Imbox, delegated HEY backfill and forward, autonomous native send policy, provider event reconciliation, and Ouro Outlook audit.
 - [ ] `npm run ci:local` passes in `ouro-work-substrate`.
 - [ ] Relevant harness tests, `npx tsc --noEmit`, and release preflight pass in `/Users/arimendelow/Projects/ouroboros-agent-harness` or its task worktree.
@@ -78,9 +82,19 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Acceptance**: A human can store/check a non-runtime credential for Slugger without a provider-specific command; the existing Porkbun-related item remains usable as a normal vault item that a DNS workflow binding may reference.
 
 ### ✅ Unit 0c: Harness Vault Item Surface — Coverage And Release
-**What**: Cover error paths, noninteractive failures, reserved item collisions, no-secret logging, notes handling, and command-help ergonomics; run harness tests/release preflight, merge/release/install as needed.
-**Output**: Coverage artifacts, PR/release evidence, and updated local installed `ouro`.
+**What**: Cover error paths, noninteractive failures, reserved item collisions, no-secret logging, notes handling, and command-help ergonomics; run harness tests, full coverage, TypeScript, and release preflight so the branch is ready for PR/release.
+**Output**: Coverage artifacts, release-preflight evidence, and harness branch evidence.
 **Acceptance**: 100% coverage on new vault-surface code and future agents see "vault item / credential with no assumed use" first in help/docs before templates or compatibility aliases. Docs/tests explicitly say notes are for human/agent orientation and are never machine contracts.
+
+### ✅ Unit 0d: Full-Moon Work-Suite Refresh
+**What**: Rerun the post-vault-correction full-moon thinking pass and update the plan around packaging/deployment lanes, shared protocol drift, branch protections, and the exact production-ready bar.
+**Output**: `full-moon-work-suite-refresh.md` plus refreshed planning/doing docs.
+**Acceptance**: The task docs make clear that harness npm release/install, hosted Azure deploy, shared protocol package/contract gates, branch protection, and live smoke are part of "done"; no unresolved human product questions remain.
+
+### ⬜ Unit 0e: Harness Vault Item Surface — Merge, Publish, Install
+**What**: Create the harness PR for `slugger/vault-item-surface`, wait for CI, merge to `main`, publish/install the resulting harness alpha release, and verify the installed `ouro` exposes the generic vault item surface plus deprecated Porkbun compatibility alias.
+**Output**: PR URL, CI/merge/release/install evidence, installed CLI verification logs.
+**Acceptance**: The local agent runtime can rely on `ouro vault item` in the installed harness; `vault ops porkbun` still works as a deprecated alias over an ordinary item; DNS/mail workflow work is no longer blocked on unreleased harness surface changes.
 
 ### ⬜ Unit 1a: Two-Lane Mail Contract — Tests
 **What**: Write failing tests/contract checks that native agent mail and delegated human mailbox source cannot collapse across protocol, harness types, tools, Outlook labels, prompt/sense summaries, and recovery records.
@@ -216,6 +230,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - Work in dedicated worktrees and branches for every repo touched.
 - Human approval gates for planning/doing/process are waived for this task; proceed directly unless a genuine external input is required.
 - Stop only for genuine human inputs: missing secret material through hidden prompt or approved secret store, Slugger vault unlock/secret entry, HEY browser/MFA/export/forwarding, provider verification that cannot be automated, and live mail sent from human-controlled accounts.
+- Treat packaging/deployment as separate release lanes: harness CLI/runtime changes must be merged, npm-published, and installed; hosted substrate services must be merged, deployed through GitHub Actions/Bicep as commit-tagged images, and live-smoked; shared protocol semantics need a package or contract gate.
 - **TDD strictly enforced**: tests → red → implement → green → refactor
 - Commit after each phase or logical unit.
 - Push after each unit complete.
@@ -236,3 +251,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 18:12 Unit 0b complete: implemented and pushed the generic harness vault item surface, documentation ladder, agent-tool vocabulary, and Porkbun deprecated compatibility alias. Evidence lives in `unit0b-implementation.md`.
 - 2026-04-22 18:49 Unit 0c complete: pushed harness commit `4dec8d50c9f5c05986352fb48616b9ceb229e563` with 100% full coverage, nerves audit pass, release preflight pass after alpha.466 version/changelog bump, and guardrail coverage for reserved/freeform vault item behavior. Evidence lives in `unit0c-coverage-release.md`.
 - 2026-04-22 18:49 Human explicitly flagged that the full-moon mail plan needs a fresh work-suite pass after the vault ontology correction and that packaging/deployment must be first-class scope, not an afterthought.
+- 2026-04-22 18:52 Unit 0d complete: ran a fresh work-suite refresh and recorded the three release lanes, shared protocol drift risk, branch protection facts, and next thin slice in `full-moon-work-suite-refresh.md`.
