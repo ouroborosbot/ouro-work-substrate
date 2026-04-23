@@ -23,6 +23,9 @@ export interface MailControlOptions {
   adminToken?: string
   adminTokenFile?: string
   allowedEmailDomain: string
+  outboundSenderProvisioner?: {
+    ensureSenderUsername(input: { agentId: string }): Promise<unknown> | unknown
+  }
   publicRegistry?: PublicRegistryCoordinates
   blobStore?: BlobStoreCoordinates
   rateLimitWindowMs?: number
@@ -275,6 +278,9 @@ export function createMailControlServer(options: MailControlOptions): http.Serve
           ...(options.blobStore ? { blobStore: options.blobStore } : {}),
         })
         return
+      }
+      if (options.outboundSenderProvisioner) {
+        await options.outboundSenderProvisioner.ensureSenderUsername({ agentId })
       }
       const result = await options.store.ensureMailbox({
         agentId,

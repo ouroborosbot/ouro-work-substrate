@@ -98,6 +98,7 @@ var prefix = 'ouro-${environmentName}'
 var storageName = toLower(replace('${prefix}${uniqueString(resourceGroup().id)}', '-', ''))
 var blobContributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
 var acrPullRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
+var contributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')
 var mailIngressTlsEnabled = !empty(mailIngressTlsKey) && !empty(mailIngressTlsCert)
 var mailIngressBaseArgs = [
   '--registry-azure-account-url'
@@ -269,6 +270,26 @@ resource acrPullAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: registry
   properties: {
     roleDefinitionId: acrPullRoleId
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource outboundEmailDomainContributorAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!outboundEmailDomainExists) {
+  name: guid(outboundEmailDomainId, identity.id, contributorRoleId)
+  scope: outboundEmailDomain
+  properties: {
+    roleDefinitionId: contributorRoleId
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource outboundEmailDomainExistingContributorAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (outboundEmailDomainExists) {
+  name: guid(outboundEmailDomainId, identity.id, contributorRoleId)
+  scope: outboundEmailDomainExisting
+  properties: {
+    roleDefinitionId: contributorRoleId
     principalId: identity.properties.principalId
     principalType: 'ServicePrincipal'
   }
@@ -474,6 +495,14 @@ resource mailControl 'Microsoft.App/containerApps@2024-03-01' = {
             '/mnt/secrets/mail-control-admin-token'
             '--allowed-email-domain'
             mailDomain
+            '--outbound-acs-subscription-id'
+            subscription().subscriptionId
+            '--outbound-acs-resource-group'
+            resourceGroup().name
+            '--outbound-acs-email-service'
+            outboundEmailService.name
+            '--outbound-acs-domain'
+            outboundEmailDomainName
             '--port'
             '8080'
           ]

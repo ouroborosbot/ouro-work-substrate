@@ -4,18 +4,22 @@ import { parseMailControlArgs } from "./args"
 import { AzureBlobMailRegistryStore, FileMailRegistryStore, type MailRegistryStore } from "./store"
 import { startMailControlServer } from "./server"
 import { AzureBlobOutboundEventSink } from "./outbound-events"
+import { createAcsSenderUsernameProvisioner } from "./sender-usernames"
 
-function createBlobServiceClient(parsed: ReturnType<typeof parseMailControlArgs>): BlobServiceClient {
-  const credential = parsed.azureManagedIdentityClientId
+function createAzureCredential(parsed: ReturnType<typeof parseMailControlArgs>): DefaultAzureCredential {
+  return parsed.azureManagedIdentityClientId
     ? new DefaultAzureCredential({ managedIdentityClientId: parsed.azureManagedIdentityClientId })
     : new DefaultAzureCredential()
+}
+
+function createBlobServiceClient(parsed: ReturnType<typeof parseMailControlArgs>, credential: DefaultAzureCredential): BlobServiceClient {
   return new BlobServiceClient(parsed.azureAccountUrl!, credential)
 }
 
 function createStore(parsed: ReturnType<typeof parseMailControlArgs>, blobServiceClient?: BlobServiceClient): MailRegistryStore {
   if (parsed.azureAccountUrl) {
     return new AzureBlobMailRegistryStore(
-      blobServiceClient ?? createBlobServiceClient(parsed),
+      blobServiceClient ?? createBlobServiceClient(parsed, createAzureCredential(parsed)),
       parsed.registryContainer,
       parsed.registryBlob,
       parsed.registryDomain,
@@ -26,12 +30,22 @@ function createStore(parsed: ReturnType<typeof parseMailControlArgs>, blobServic
 
 export function runMailControl(args: string[] = process.argv.slice(2)): ReturnType<typeof startMailControlServer> {
   const parsed = parseMailControlArgs(args)
-  const blobServiceClient = parsed.azureAccountUrl ? createBlobServiceClient(parsed) : undefined
+  const azureCredential = parsed.azureAccountUrl || parsed.outboundAcs ? createAzureCredential(parsed) : undefined
+  const blobServiceClient = parsed.azureAccountUrl ? createBlobServiceClient(parsed, azureCredential!) : undefined
   return startMailControlServer({
     store: createStore(parsed, blobServiceClient),
     ...(parsed.adminToken ? { adminToken: parsed.adminToken } : {}),
     ...(parsed.adminTokenFile ? { adminTokenFile: parsed.adminTokenFile } : {}),
     allowedEmailDomain: parsed.allowedEmailDomain,
+    ...(parsed.outboundAcs
+      ? {
+          outboundSenderProvisioner: createAcsSenderUsernameProvisioner({
+            ...parsed.outboundAcs,
+            ...(parsed.azureManagedIdentityClientId ? { managedIdentityClientId: parsed.azureManagedIdentityClientId } : {}),
+            ...(azureCredential ? { credential: azureCredential } : {}),
+          }),
+        }
+      : {}),
     ...(parsed.azureAccountUrl
       ? {
           publicRegistry: {
