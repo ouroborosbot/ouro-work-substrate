@@ -11,7 +11,7 @@ The emotional bar matters: this is future home infrastructure. It should be calm
 ## Observed Terrain
 
 - `ouro-work-substrate` is a private hosted-service repo. Its deploy artifacts are service Docker images tagged by commit SHA and deployed through `.github/workflows/deploy-azure.yml` after green CI on `main`. It is not currently shaped like an npm-published product.
-- `deploy-azure.yml` already provides a post-merge deployment hook: successful `CI` on `main` triggers Azure deploy for non-doc changes, checks out the exact CI-tested commit, builds all service images, pushes to ACR, deploys Bicep, and skips docs-only commits.
+- `deploy-azure.yml` provides a post-merge deployment hook: successful `CI` on `main` triggers Azure deploy for non-doc changes, checks out the exact CI-tested commit, builds all service images, pushes to ACR, and deploys Bicep. A later Unit 4c follow-up found and fixed an important skip-decision bug: the hook must compare the current deployed commit-tagged image to the tested commit, not just inspect the head commit.
 - `package.json` has `private: true`; `packages/work-protocol/package.json` is also private. `@ouro/work-protocol` is used inside substrate workspaces and Docker images, but the harness has a parallel Mailroom model rather than consuming that package today.
 - CI has two required-looking jobs in branch protection: `test` and `coverage`. Current `main` protection for `ouro-work-substrate` requires strict status checks `test` and `coverage`, enforces admins, requires linear history, and requires conversation resolution.
 - Current `main` protection for `ouroboros` requires `coverage`, enforces admins, requires linear history, and requires conversation resolution. The earlier linear-history/conversation-resolution request is already satisfied there.
@@ -56,7 +56,7 @@ The credential shape is now stable:
 - Azure Container Apps looks like the obvious inbound edge because it already worked on `2525`, but port 25 may still fail. The plan needs a fallback edge, not sunk-cost attachment.
 - ACS looks like "email solved", but it is outbound submission/domain-auth/events, not the inbound mailbox engine.
 - HEY browser automation looks agent-run, but login/MFA/export/forwarding confirmation are human-at-keyboard gates. Slugger should drive browser MCP as far as safe, then ask only for the irreducible human step.
-- A docs-only planning commit can skip Azure deploy correctly, but runtime/infra mail changes must rely on the deploy workflow and live smoke, not local one-off Azure mutations.
+- A docs-only planning commit can skip Azure deploy correctly only when every change since the currently deployed commit-tagged image is documentation-only. A docs-only head commit after runtime changes must still deploy.
 
 ## Thin Slice
 

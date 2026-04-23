@@ -50,7 +50,46 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ env.DEPLOY_SHA }}
-          fetch-depth: 2
+          fetch-depth: 0
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Discover current deployed image
+        id: current_image
+        if: github.event_name != 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+          current_image=""
+          deployed_sha=""
+          app_name="ouro-${AZURE_ENVIRONMENT_NAME}-mail-ingress"
+          if [[ -n "${AZURE_RESOURCE_GROUP:-}" ]]; then
+            current_image="$(az containerapp show \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --name "$app_name" \
+              --query "properties.template.containers[?name=='mail-ingress'].image | [0]" \
+              -o tsv 2>/dev/null || true)"
+          fi
+          if [[ "$current_image" == *":"* ]]; then
+            deployed_sha="${current_image##*:}"
+          fi
+          echo "image=$current_image" >> "$GITHUB_OUTPUT"
+          echo "deployed_sha=$deployed_sha" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Current deployed image"
+            echo
+            echo "App: \`$app_name\`"
+            if [[ -n "$current_image" ]]; then
+              echo "Image: \`$current_image\`"
+              echo "Detected deployed SHA: \`$deployed_sha\`"
+            else
+              echo "No current image could be inspected; deployment decision will be conservative."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Decide whether deployment is needed
         id: deploy_decision
@@ -63,35 +102,27 @@ jobs:
             exit 0
           fi
 
-          if ! git rev-parse "${DEPLOY_SHA}^" >/dev/null 2>&1; then
-            echo "should_deploy=true" >> "$GITHUB_OUTPUT"
-            echo "Could not inspect parent commit for ${DEPLOY_SHA}; deploying conservatively." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
-          git diff --name-only "${DEPLOY_SHA}^" "${DEPLOY_SHA}" > changed-files.txt
-          should_deploy="$(scripts/should-auto-deploy.sh < changed-files.txt)"
+          deployed_sha="${{ steps.current_image.outputs.deployed_sha }}"
+          should_deploy="$(scripts/should-auto-deploy-between.sh "$deployed_sha" "$DEPLOY_SHA" changed-files.txt auto-deploy-reason.txt)"
           echo "should_deploy=$should_deploy" >> "$GITHUB_OUTPUT"
+          reason="$(cat auto-deploy-reason.txt)"
           {
             echo "### Auto deploy decision"
             echo
             echo "Commit: \`${DEPLOY_SHA}\`"
-            echo "Changed files:"
-            sed 's/^/- `/' changed-files.txt | sed 's/$/`/'
+            echo "Current deployed image SHA: \`${deployed_sha:-unknown}\`"
+            echo "Decision: \`${should_deploy}\`"
+            echo "Reason: $reason"
             echo
-            if [[ "$should_deploy" == "true" ]]; then
-              echo "Runtime, infrastructure, or workflow files changed; deploying."
+            echo "Changed files:"
+            if [[ -s changed-files.txt ]]; then
+              sed 's/^/- `/' changed-files.txt | sed 's/$/`/'
             else
-              echo "Only documentation files changed; skipping Azure deployment."
+              echo "- none recorded"
             fi
+            echo
+            echo "$reason"
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - uses: azure/login@v3
-        if: steps.deploy_decision.outputs.should_deploy == 'true'
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Ensure resource group and registry
         if: steps.deploy_decision.outputs.should_deploy == 'true'
@@ -188,4 +219,4 @@ jobs:
         if: steps.deploy_decision.outputs.should_deploy != 'true'
         shell: bash
         run: |
-          echo "Azure deployment skipped because the tested commit changed only documentation files."
+          echo "Azure deployment skipped because no runtime, infrastructure, or workflow files changed since the current deployed image."

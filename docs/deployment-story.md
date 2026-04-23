@@ -9,7 +9,7 @@ This doc is the memory of how the deploy story changed. Keep it honest. A future
 - Hosted service code lives here: shared protocol, Mail Ingress, Mail Control, Vault Control, Dockerfiles, and Azure infra.
 - The Ouroboros harness still owns local setup commands, the Mail sense, bounded mail tools, local development stores, and Ouro Outlook.
 - Azure proof deployment is live from this repo.
-- Runtime, infrastructure, and workflow changes on `main` deploy automatically after green CI through GitHub OIDC; docs-only changes skip Azure rollout.
+- Runtime, infrastructure, and workflow changes on `main` deploy automatically after green CI through GitHub OIDC. The skip decision compares the commit-tagged image currently running in Azure with the CI-tested commit, so docs-only changes skip Azure rollout only when the whole range since the deployed image is documentation-only.
 - Mail Ingress listens on internal target port `2525` and is exposed on public SMTP port `25`.
 - Mail Ingress code and deploy templates support STARTTLS from mounted PEM secrets, SMTP `SIZE`, connection/rate limits, recipient transaction limits, unknown-recipient rejection, and body-safe transient failure logging.
 - Production DNS/MX for `ouro.bot` points at `mx1.ouro.bot`.
@@ -58,9 +58,9 @@ Status: complete for the Container Apps edge decision. The app is deployed with 
 
 ### Phase 4: Deployment Automation
 
-Phase 4 is deploy-after-green-CI automation. It should use the exact CI-tested commit, Azure OIDC, ACR image tags tied to the commit SHA, serialized environment deployment, and docs-only skip behavior.
+Phase 4 is deploy-after-green-CI automation. It should use the exact CI-tested commit, Azure OIDC, ACR image tags tied to the commit SHA, serialized environment deployment, and range-aware docs-only skip behavior.
 
-Status: complete. A workflow-run deploy now starts after successful `CI` on `main`, skips docs-only commits, and the `prod` GitHub Environment OIDC subject is authorized in Azure.
+Status: complete. A workflow-run deploy now starts after successful `CI` on `main`, inspects the current `mail-ingress` Container App image tag, deploys conservatively when that image cannot be matched to the tested history, and skips only when every change since the deployed image is documentation-only. The `prod` GitHub Environment OIDC subject is authorized in Azure.
 
 Manual deployment remains available for token rotation, repairs, and proof-port changes.
 

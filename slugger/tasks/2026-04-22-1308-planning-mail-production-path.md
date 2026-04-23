@@ -134,7 +134,7 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - `docs/agent-account-lifecycle.md`: desired ensure flow and recovery posture.
 - `docs/deployment-story.md`: Phase 3/5 are still the open production ingress and mail edge decisions.
 - `docs/operations.md`: smoke tests, deploy path, rollback, and human-only gates.
-- `.github/workflows/deploy-azure.yml`: post-merge deployment hook triggered by successful CI on `main`; checks out the exact tested SHA, skips docs-only changes, builds/pushes commit-tagged Docker images, and deploys Bicep.
+- `.github/workflows/deploy-azure.yml`: post-merge deployment hook triggered by successful CI on `main`; checks out the exact tested SHA, compares it to the commit-tagged image currently deployed in Azure, skips only when the full deployed-image-to-tested-commit range is docs-only, builds/pushes commit-tagged Docker images, and deploys Bicep.
 - `infra/azure/main.bicep`: mail ingress already supports parameterized SMTP target/exposed ports through Container Apps additional TCP port mappings.
 - `apps/mail-control/src/server.ts`: production ensure endpoint is `POST /v1/mailboxes/ensure`; returns `mailboxAddress`, `sourceAlias`, generated private keys, and registry revision.
 - `apps/mail-ingress/src/server.ts`: current SMTP server disables `AUTH` and `STARTTLS`; production TLS posture is a required code change.
