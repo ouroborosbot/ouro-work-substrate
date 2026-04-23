@@ -201,10 +201,10 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Coverage artifacts and operations docs.
 **Acceptance**: 100% coverage on new provider/event code and local provider smoke passes. Live provider smoke remains Unit 10 after deployment, domain authentication, provider credentials, and event subscription wiring are in place.
 
-### ⬜ Unit 8a: Outlook, Tools, And Audit Ergonomics — Tests
+### ✅ Unit 8a: Outlook, Tools, And Audit Ergonomics — Tests
 **What**: Write failing tests/screenshots for clear native versus delegated labeling, source folders, access logs, autonomous send audit, delivery events, recovery drawers, and no body leakage in summaries.
 **Output**: Red API/UI/tool tests.
-**Acceptance**: Tests fail until the mailbox surface shows executive-assistant clarity instead of a blended inbox.
+**Acceptance**: Red harness API/tool/UI tests now fail until the mailbox surface shows executive-assistant clarity instead of a blended inbox. Evidence lives in `unit8a-red-tests.md`.
 
 ### ⬜ Unit 8b: Outlook, Tools, And Audit Ergonomics — Implementation
 **What**: Polish Outlook, mail tools, access logs, and prompt/sense summaries around the two-lane model and production delivery states.
@@ -277,3 +277,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-23 01:14 Unit 7a complete: added red substrate/harness tests for outbound provider submission, provider message ids, ACS Event Grid delivery reports, hosted webhook validation, body-safe delivery event sink payloads, and idempotent reconciliation. Evidence lives in `unit7a-red-tests.md`.
 - 2026-04-23 01:31 Unit 7b complete: implemented shared outbound provider states/events, Mail Control ACS Event Grid webhook handling, harness ACS HMAC provider client, explicit vault-item credential binding fields, Outlook/tool status visibility, and docs for the harness/package versus hosted/deploy lanes. Evidence lives in `unit7b-implementation.md`.
 - 2026-04-23 02:07 Unit 7c complete: closed substrate and harness provider/event branch coverage at 100%, including ACS malformed events, sparse provider responses, no-note credential bindings, body-safe webhook failures, unknown provider message reconciliation, and `mail_send` submitted/provider fallback output. Evidence lives in `unit7c-coverage-refactor.md`.
+- 2026-04-23 02:16 Unit 8a complete: added and pushed red harness API/tool/UI tests for owner-scoped source folders, native/delegated audit labels, autonomous send authority/policy output, provider delivery events, and body-safe outbound summaries. Evidence lives in `unit8a-red-tests.md`.
