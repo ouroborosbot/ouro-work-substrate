@@ -11,6 +11,7 @@ This doc is the memory of how the deploy story changed. Keep it honest. A future
 - Azure proof deployment is live from this repo.
 - Runtime, infrastructure, and workflow changes on `main` deploy automatically after green CI through GitHub OIDC; docs-only changes skip Azure rollout.
 - Mail proof SMTP is on port `2525`.
+- Mail Ingress code and deploy templates support STARTTLS from mounted PEM secrets, SMTP `SIZE`, connection/rate limits, recipient transaction limits, unknown-recipient rejection, and body-safe transient failure logging.
 - Production DNS/MX cutover has not happened.
 - Autonomous sending is not enabled.
 
@@ -53,7 +54,7 @@ Status: complete. The live proof verified native `slugger@ouro.bot` mail to Scre
 
 Decide whether Azure Container Apps can support the final production MX path on port `25`. If not, keep Container Apps for control/services and add a small Azure mail edge for SMTP ingress.
 
-Status: open. Do not publish production MX until this is proven.
+Status: open. The app path is being hardened for production SMTP, but do not publish production MX until a live port-25 proof shows the edge can accept real MX traffic with STARTTLS and body-safe observability.
 
 ### Phase 4: Deployment Automation
 
@@ -67,7 +68,7 @@ Manual deployment remains available for token rotation, repairs, and proof-port 
 
 Phase 5 is the real inbound mail decision: production MX, port `25`, DNS, HEY forwarding, and operational monitoring.
 
-Status: gated on live proof, not a separate approval ceremony. This may require a dedicated Azure mail edge if Container Apps is not the right final SMTP endpoint.
+Status: gated on live proof, not a separate approval ceremony. This may require a dedicated Azure mail edge if Container Apps is not the right final SMTP endpoint. The current deploy lane keeps hosted services as private commit-addressed Docker images built by GitHub Actions and applied through Bicep; these services are not published as npm packages.
 
 ## Branch Protection
 

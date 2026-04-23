@@ -1,4 +1,5 @@
 import * as http from "node:http"
+import type { TlsOptions } from "node:tls"
 import { simpleParser } from "mailparser"
 import { SMTPServer, type SMTPServerDataStream, type SMTPServerSession } from "smtp-server"
 import {
@@ -17,6 +18,11 @@ export interface MailIngressOptions {
   registryProvider: MailroomRegistryProvider
   store: MailroomStore
   maxMessageBytes?: number
+  maxRecipients?: number
+  maxConnections?: number
+  connectionRateLimitMax?: number
+  connectionRateLimitWindowMs?: number
+  tls?: Pick<TlsOptions, "key" | "cert">
 }
 
 export interface MailIngressServers {
@@ -45,6 +51,12 @@ function collectStream(stream: SMTPServerDataStream, maxBytes: number): Promise<
 function sessionRecipients(session: SMTPServerSession): string[] {
   /* v8 ignore next -- smtp-server initializes the recipient list for DATA sessions. */
   return (session.envelope.rcptTo ?? []).map((address) => normalizeMailAddress(address.address))
+}
+
+function smtpError(message: string, responseCode: number): Error & { responseCode: number } {
+  const error = new Error(message) as Error & { responseCode: number }
+  error.responseCode = responseCode
+  return error
 }
 
 function addressList(values: Array<{ address?: string; name?: string; group?: Array<{ address?: string; name?: string }> }> | undefined): string[] {
@@ -114,10 +126,55 @@ export async function parsePrivateMailEnvelope(rawMime: Buffer): Promise<{
 
 export function createMailIngressSmtpServer(options: MailIngressOptions): SMTPServer {
   const maxMessageBytes = options.maxMessageBytes ?? 25 * 1024 * 1024
+  const maxRecipients = options.maxRecipients ?? 100
+  const connectionRateLimitMax = options.connectionRateLimitMax ?? 120
+  const connectionRateLimitWindowMs = options.connectionRateLimitWindowMs ?? 60_000
+  const connectionAttemptsByRemote = new Map<string, number[]>()
+  const acceptedRecipientsBySession = new Map<string, number>()
   const server = new SMTPServer({
-    disabledCommands: ["AUTH", "STARTTLS"],
+    ...(options.tls ?? {}),
+    disabledCommands: options.tls ? ["AUTH"] : ["AUTH", "STARTTLS"],
+    size: maxMessageBytes,
+    maxClients: options.maxConnections ?? 100,
     logger: false,
-    onRcptTo(address, _session, callback) {
+    onConnect(session, callback) {
+      const now = Date.now()
+      const windowStart = now - connectionRateLimitWindowMs
+      const remoteAddress = session.remoteAddress || "unknown"
+      const recentAttempts = (connectionAttemptsByRemote.get(remoteAddress) ?? []).filter((attemptedAt) => attemptedAt >= windowStart)
+      if (recentAttempts.length >= connectionRateLimitMax) {
+        connectionAttemptsByRemote.set(remoteAddress, recentAttempts)
+        logEvent({
+          level: "warn",
+          component: "mail-ingress",
+          event: "connection_rate_limited",
+          message: "smtp connection rejected by rate limit",
+          meta: { remoteAddress, connectionRateLimitMax, connectionRateLimitWindowMs },
+        })
+        callback(smtpError("too many connection attempts, try again later", 421))
+        return
+      }
+      recentAttempts.push(now)
+      connectionAttemptsByRemote.set(remoteAddress, recentAttempts)
+      callback()
+    },
+    onMailFrom(_address, session, callback) {
+      acceptedRecipientsBySession.set(session.id, 0)
+      callback()
+    },
+    onRcptTo(address, session, callback) {
+      const acceptedRecipients = acceptedRecipientsBySession.get(session.id) ?? 0
+      if (acceptedRecipients >= maxRecipients) {
+        logEvent({
+          level: "warn",
+          component: "mail-ingress",
+          event: "recipient_limit_rejected",
+          message: "smtp recipient rejected by transaction recipient limit",
+          meta: { maxRecipients },
+        })
+        callback(smtpError("too many recipients for one message", 452))
+        return
+      }
       void options.registryProvider.current()
         .then((registry) => {
           const normalized = normalizeMailAddress(address.address)
@@ -140,10 +197,18 @@ export function createMailIngressSmtpServer(options: MailIngressOptions): SMTPSe
             message: "smtp recipient accepted",
             meta: { address: normalized, agentId: resolved.agentId },
           })
+          acceptedRecipientsBySession.set(session.id, acceptedRecipients + 1)
           callback()
         })
-        .catch((error: unknown) => {
-          callback(error instanceof Error ? error : new Error(String(error)))
+        .catch(() => {
+          logEvent({
+            level: "error",
+            component: "mail-ingress",
+            event: "recipient_validation_error",
+            message: "smtp recipient validation failed",
+            meta: { error: "temporary recipient validation failure" },
+          })
+          callback(smtpError("temporary recipient validation failure", 451))
         })
     },
     async onData(stream, session, callback) {
@@ -172,15 +237,22 @@ export function createMailIngressSmtpServer(options: MailIngressOptions): SMTPSe
         })
         callback()
       } catch (error) {
+        const isSizeError = error instanceof Error && error.message.startsWith("message exceeds max size")
+        const safeMessage = isSizeError
+          ? `message exceeds maximum size ${maxMessageBytes}`
+          : "temporary mail ingestion failure"
         logEvent({
           level: "error",
           component: "mail-ingress",
           event: "data_error",
           message: "smtp data handling failed",
-          meta: { error: error instanceof Error ? error.message : String(error) },
+          meta: { error: safeMessage },
         })
-        callback(error instanceof Error ? error : new Error(String(error)))
+        callback(smtpError(safeMessage, isSizeError ? 552 : 451))
       }
+    },
+    onClose(session) {
+      acceptedRecipientsBySession.delete(session.id)
     },
   })
   return server

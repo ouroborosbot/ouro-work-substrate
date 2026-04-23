@@ -41,6 +41,10 @@ jobs:
       AZURE_LOCATION: ${{ inputs.location || vars.AZURE_LOCATION || 'eastus2' }}
       AZURE_ENVIRONMENT_NAME: ${{ inputs.environment_name || vars.AZURE_ENVIRONMENT_NAME || 'prod' }}
       AZURE_MAIL_EXPOSED_SMTP_PORT: ${{ inputs.mail_exposed_smtp_port || vars.AZURE_MAIL_EXPOSED_SMTP_PORT || '2525' }}
+      AZURE_MAIL_INGRESS_MAX_RECIPIENTS: ${{ vars.AZURE_MAIL_INGRESS_MAX_RECIPIENTS || '100' }}
+      AZURE_MAIL_INGRESS_MAX_CONNECTIONS: ${{ vars.AZURE_MAIL_INGRESS_MAX_CONNECTIONS || '100' }}
+      AZURE_MAIL_INGRESS_CONNECTION_RATE_LIMIT_MAX: ${{ vars.AZURE_MAIL_INGRESS_CONNECTION_RATE_LIMIT_MAX || '120' }}
+      AZURE_MAIL_INGRESS_CONNECTION_RATE_LIMIT_WINDOW_MS: ${{ vars.AZURE_MAIL_INGRESS_CONNECTION_RATE_LIMIT_WINDOW_MS || '60000' }}
       DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@v6
@@ -138,10 +142,16 @@ jobs:
         env:
           MAIL_CONTROL_ADMIN_TOKEN: ${{ secrets.MAIL_CONTROL_ADMIN_TOKEN }}
           VAULT_CONTROL_ADMIN_TOKEN: ${{ secrets.VAULT_CONTROL_ADMIN_TOKEN }}
+          MAIL_INGRESS_TLS_KEY: ${{ secrets.MAIL_INGRESS_TLS_KEY }}
+          MAIL_INGRESS_TLS_CERT: ${{ secrets.MAIL_INGRESS_TLS_CERT }}
         run: |
           set -euo pipefail
           : "${MAIL_CONTROL_ADMIN_TOKEN:?MAIL_CONTROL_ADMIN_TOKEN secret is required}"
           : "${VAULT_CONTROL_ADMIN_TOKEN:?VAULT_CONTROL_ADMIN_TOKEN secret is required}"
+          if { [[ -n "$MAIL_INGRESS_TLS_KEY" ]] && [[ -z "$MAIL_INGRESS_TLS_CERT" ]]; } || { [[ -z "$MAIL_INGRESS_TLS_KEY" ]] && [[ -n "$MAIL_INGRESS_TLS_CERT" ]]; }; then
+            echo "MAIL_INGRESS_TLS_KEY and MAIL_INGRESS_TLS_CERT must be configured together." >&2
+            exit 1
+          fi
           az deployment group create \
             --resource-group "$AZURE_RESOURCE_GROUP" \
             --name "apps-${GITHUB_RUN_ID}" \
@@ -155,7 +165,13 @@ jobs:
               vaultControlImage="${{ steps.images.outputs.vault_control_image }}" \
               mailControlAdminToken="$MAIL_CONTROL_ADMIN_TOKEN" \
               vaultControlAdminToken="$VAULT_CONTROL_ADMIN_TOKEN" \
-              mailExposedSmtpPort="$AZURE_MAIL_EXPOSED_SMTP_PORT"
+              mailExposedSmtpPort="$AZURE_MAIL_EXPOSED_SMTP_PORT" \
+              mailIngressMaxRecipients="$AZURE_MAIL_INGRESS_MAX_RECIPIENTS" \
+              mailIngressMaxConnections="$AZURE_MAIL_INGRESS_MAX_CONNECTIONS" \
+              mailIngressConnectionRateLimitMax="$AZURE_MAIL_INGRESS_CONNECTION_RATE_LIMIT_MAX" \
+              mailIngressConnectionRateLimitWindowMs="$AZURE_MAIL_INGRESS_CONNECTION_RATE_LIMIT_WINDOW_MS" \
+              mailIngressTlsKey="$MAIL_INGRESS_TLS_KEY" \
+              mailIngressTlsCert="$MAIL_INGRESS_TLS_CERT"
 
       - name: Show deployment outputs
         if: steps.deploy_decision.outputs.should_deploy == 'true'

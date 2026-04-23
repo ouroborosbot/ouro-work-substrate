@@ -48,6 +48,10 @@ GitHub repository secrets:
 
 - `MAIL_CONTROL_ADMIN_TOKEN`
 - `VAULT_CONTROL_ADMIN_TOKEN`
+- Optional together: `MAIL_INGRESS_TLS_KEY`
+- Optional together: `MAIL_INGRESS_TLS_CERT`
+
+`MAIL_INGRESS_TLS_KEY` and `MAIL_INGRESS_TLS_CERT` are the PEM private key and certificate chain mounted into Mail Ingress for SMTP STARTTLS. Configure both or neither. The deploy workflow fails when exactly one is set; with neither set, Mail Ingress keeps STARTTLS disabled and remains proof-only.
 
 GitHub repository variables:
 
@@ -58,6 +62,10 @@ GitHub repository variables:
 - `AZURE_LOCATION`
 - `AZURE_ENVIRONMENT_NAME`
 - Optional: `AZURE_MAIL_EXPOSED_SMTP_PORT`
+- Optional: `AZURE_MAIL_INGRESS_MAX_RECIPIENTS`
+- Optional: `AZURE_MAIL_INGRESS_MAX_CONNECTIONS`
+- Optional: `AZURE_MAIL_INGRESS_CONNECTION_RATE_LIMIT_MAX`
+- Optional: `AZURE_MAIL_INGRESS_CONNECTION_RATE_LIMIT_WINDOW_MS`
 
 Bootstrap or repair Azure OIDC, repo variables, and resource-group role assignments with:
 
@@ -116,10 +124,15 @@ Run this after a meaningful deployment. Do not skip the encryption/decryption pr
 4. Verify unauthenticated Mail Control and Vault Control mutations return `401`.
 5. Call `POST /v1/mailboxes/ensure` on Mail Control with a bearer token.
 6. Verify first creation returns private keys, public mailbox/source records, hosted registry/Blob coordinates, and that repeated ensure calls return zero new keys while preserving the same public key ids.
-7. Send SMTP to the proof TCP port, currently `2525`.
-8. Verify accepted mail appears in Blob Storage as encrypted mail.
-9. Decrypt through the private keys stored in the owning agent vault or, during first proof only, the one-time keys returned by Mail Control.
-10. Confirm native mail lands in Screener and delegated HEY alias mail lands in Imbox with owner/source provenance.
+7. Check SMTP `EHLO` on the proof TCP port, currently `2525`.
+8. When TLS secrets are configured, verify `STARTTLS` is advertised; `AUTH` must not be advertised.
+9. Verify `SIZE` is advertised and a declared oversized `MAIL FROM SIZE=` is rejected before `DATA`.
+10. Verify the recipient limit rejects excess recipients in one transaction.
+11. Send accepted SMTP mail to the proof TCP port.
+12. Verify accepted mail appears in Blob Storage as encrypted mail.
+13. Decrypt through the private keys stored in the owning agent vault or, during first proof only, the one-time keys returned by Mail Control.
+14. Confirm native mail lands in Screener and delegated HEY alias mail lands in Imbox with owner/source provenance.
+15. Inspect Mail Ingress logs for body-safe events. Logs may include addresses, limits, and safe error categories; they must not include raw mail bodies, private MIME payloads, TLS private keys, provider credentials, or vault unlock material.
 
 For Slugger, the expected public addresses are:
 
@@ -154,6 +167,10 @@ The control services read token files at request time, so a rotated mounted secr
 Current defaults:
 
 - Mail ingress: `minReplicas=1`, `maxReplicas=5`.
+- Mail ingress recipient limit: `AZURE_MAIL_INGRESS_MAX_RECIPIENTS`, default `100`.
+- Mail ingress concurrent connection limit per replica: `AZURE_MAIL_INGRESS_MAX_CONNECTIONS`, default `100`.
+- Mail ingress remote-address connection rate limit: `AZURE_MAIL_INGRESS_CONNECTION_RATE_LIMIT_MAX`, default `120`.
+- Mail ingress remote-address rate window: `AZURE_MAIL_INGRESS_CONNECTION_RATE_LIMIT_WINDOW_MS`, default `60000`.
 - Mail Control: `minReplicas=1`, `maxReplicas=3`.
 - Vault Control: `minReplicas=1`, `maxReplicas=2`.
 
