@@ -67,7 +67,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Baseline artifact with repo/worktree paths, current commits, live DNS/Azure facts, foundation-doc summary, and immediate blockers.
 **Acceptance**: Baseline proves no user changes were overwritten, names the active remotes/branches, and confirms which human inputs are genuinely missing before implementation begins.
 
-### ⬜ Unit 0a: Harness Vault Item Surface — Tests
+### ✅ Unit 0a: Harness Vault Item Surface — Tests
 **What**: Write failing harness tests and doc contracts for a generic human-facing vault item/credential surface: stable item name/path, hidden secret entry, optional public fields, freeform editable notes, tags/folder-ish organization, timestamps/provenance, list/status without secret exposure, reserved runtime/config guidance, templates as convenience only, and provider helper compatibility.
 **Output**: Red CLI/docs tests in the harness worktree, including docs contracts for `README.md`, `AGENTS.md`, `docs/auth-and-providers.md`, and `ouro help vault`.
 **Acceptance**: Tests fail where the only human CLI path for an arbitrary credential is provider-specific, where docs/help show template or compatibility helpers before the generic item surface, or where docs imply ops credentials, authorities, DNS credentials, or provider credentials are separate ontologies for freeform vault items.
@@ -232,3 +232,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 17:45 Rewrote credential orientation to the stricter primitive: vault item/credential with no assumed use; workflows bind to items outside the item; notes are never machine contracts.
 - 2026-04-22 17:51 Mapped the documentation and surface fix: harness origin currently teaches `Operational Credentials` plus `vault ops porkbun`; implementation must make `ouro vault item` canonical and reduce provider helpers to templates or deprecated compatibility aliases.
 - 2026-04-22 17:56 Unit 0 complete: captured clean substrate and harness worktrees, live DNS/Azure/GitHub/vault facts, foundation mail carry-forward, and genuine remaining human gates in `unit0-baseline.md`.
+- 2026-04-22 18:04 Unit 0a complete: added and pushed red harness tests for generic vault item docs, help, parsing, execution, compatibility alias behavior, and agent-facing credential tool vocabulary. Evidence lives in `unit0a-red-tests.md`.
