@@ -206,10 +206,10 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Red API/UI/tool tests.
 **Acceptance**: Red harness API/tool/UI tests now fail until the mailbox surface shows executive-assistant clarity instead of a blended inbox. Evidence lives in `unit8a-red-tests.md`.
 
-### ⬜ Unit 8b: Outlook, Tools, And Audit Ergonomics — Implementation
+### ✅ Unit 8b: Outlook, Tools, And Audit Ergonomics — Implementation
 **What**: Polish Outlook, mail tools, access logs, and prompt/sense summaries around the two-lane model and production delivery states.
 **Output**: Harness UI/API/tooling/docs changes.
-**Acceptance**: The agent and human can always tell whether a message is Slugger's mail or Ari's delegated HEY mail, why it surfaced, and what actions occurred.
+**Acceptance**: The focused harness API/tool/UI tests now pass; Outlook and mail tools show native/delegated mailbox provenance, autonomous policy audit, and provider delivery state. Evidence lives in `unit8b-implementation.md`.
 
 ### ⬜ Unit 8c: Outlook, Tools, And Audit Ergonomics — Coverage And Refactor
 **What**: Run UI tests/build/screenshot checks, focused mail tool tests, and accessibility/responsive checks.
@@ -278,3 +278,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-23 01:31 Unit 7b complete: implemented shared outbound provider states/events, Mail Control ACS Event Grid webhook handling, harness ACS HMAC provider client, explicit vault-item credential binding fields, Outlook/tool status visibility, and docs for the harness/package versus hosted/deploy lanes. Evidence lives in `unit7b-implementation.md`.
 - 2026-04-23 02:07 Unit 7c complete: closed substrate and harness provider/event branch coverage at 100%, including ACS malformed events, sparse provider responses, no-note credential bindings, body-safe webhook failures, unknown provider message reconciliation, and `mail_send` submitted/provider fallback output. Evidence lives in `unit7c-coverage-refactor.md`.
 - 2026-04-23 02:16 Unit 8a complete: added and pushed red harness API/tool/UI tests for owner-scoped source folders, native/delegated audit labels, autonomous send authority/policy output, provider delivery events, and body-safe outbound summaries. Evidence lives in `unit8a-red-tests.md`.
+- 2026-04-23 02:20 Unit 8b complete: implemented the Outlook reader/tool/UI audit surface, greened the Unit 8a suites, and passed root plus Outlook UI builds. Evidence lives in `unit8b-implementation.md`.
