@@ -1,0 +1,26 @@
+{
+  "additionalPortMappings": [
+    {
+      "exposedPort": 25,
+      "external": true,
+      "targetPort": 2525
+    }
+  ],
+  "allowInsecure": false,
+  "clientCertificateMode": null,
+  "corsPolicy": null,
+  "customDomains": null,
+  "exposedPort": 0,
+  "external": true,
+  "fqdn": "ouro-prod-mail-ingress.blueflower-44af4710.eastus2.azurecontainerapps.io",
+  "ipSecurityRestrictions": null,
+  "stickySessions": null,
+  "targetPort": 8080,
+  "traffic": [
+    {
+      "latestRevision": true,
+      "weight": 100
+    }
+  ],
+  "transport": "Http"
+}

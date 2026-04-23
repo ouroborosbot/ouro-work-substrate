@@ -1,0 +1,307 @@
+{
+  "action": "backup",
+  "binding": {
+    "workflow": "dns",
+    "domain": "ouro.bot",
+    "driver": "porkbun",
+    "credentialItem": "ops/registrars/porkbun/accounts/ari@mendelow.me",
+    "resources": {
+      "records": [
+        {
+          "type": "A",
+          "name": "mx1"
+        },
+        {
+          "type": "MX",
+          "name": "@"
+        },
+        {
+          "type": "TXT",
+          "name": "@"
+        },
+        {
+          "type": "TXT",
+          "name": "_dmarc"
+        },
+        {
+          "type": "TXT",
+          "name": "_acme-challenge.mx1"
+        }
+      ]
+    },
+    "desired": {
+      "records": [
+        {
+          "type": "A",
+          "name": "mx1",
+          "content": "20.10.114.197",
+          "ttl": 600
+        },
+        {
+          "type": "MX",
+          "name": "@",
+          "content": "mx1.ouro.bot",
+          "ttl": 600,
+          "priority": 10
+        },
+        {
+          "type": "TXT",
+          "name": "_dmarc",
+          "content": "v=DMARC1; p=none; rua=mailto:dmarc@ouro.bot",
+          "ttl": 600
+        }
+      ]
+    },
+    "certificate": {
+      "host": "mx1.ouro.bot",
+      "source": "porkbun-ssl",
+      "storeItem": "runtime/mail/certificates/mx1.ouro.bot",
+      "acmeChallengeRecord": {
+        "type": "TXT",
+        "name": "_acme-challenge.mx1"
+      }
+    }
+  },
+  "plan": {
+    "backup": {
+      "domain": "ouro.bot",
+      "records": [
+        {
+          "id": "528506490",
+          "type": "ALIAS",
+          "name": "@",
+          "content": "uixie.porkbun.com",
+          "ttl": 600
+        },
+        {
+          "id": "528506492",
+          "type": "CNAME",
+          "name": "*",
+          "content": "uixie.porkbun.com",
+          "ttl": 600
+        },
+        {
+          "id": "540390924",
+          "type": "CNAME",
+          "name": "autodiscover",
+          "content": "autodiscover.outlook.com",
+          "ttl": 600,
+          "priority": 0
+        },
+        {
+          "id": "540390853",
+          "type": "MX",
+          "name": "@",
+          "content": "ouro-bot.mail.protection.outlook.com",
+          "ttl": 600,
+          "priority": 0
+        },
+        {
+          "id": "528505537",
+          "type": "NS",
+          "name": "@",
+          "content": "curitiba.porkbun.com",
+          "ttl": 86400
+        },
+        {
+          "id": "528505536",
+          "type": "NS",
+          "name": "@",
+          "content": "fortaleza.porkbun.com",
+          "ttl": 86400
+        },
+        {
+          "id": "528505534",
+          "type": "NS",
+          "name": "@",
+          "content": "maceio.porkbun.com",
+          "ttl": 86400
+        },
+        {
+          "id": "528505535",
+          "type": "NS",
+          "name": "@",
+          "content": "salvador.porkbun.com",
+          "ttl": 86400
+        },
+        {
+          "id": "530968606",
+          "type": "TXT",
+          "name": "@",
+          "content": "google-site-verification=WXUIjHyie17jPtPxOPJ24hzDCiWWbCcxJOiTCrKBZVo",
+          "ttl": 600,
+          "priority": 0
+        },
+        {
+          "id": "540390516",
+          "type": "TXT",
+          "name": "@",
+          "content": "MS=ms39590390",
+          "ttl": 600,
+          "priority": 0
+        },
+        {
+          "id": "540390888",
+          "type": "TXT",
+          "name": "@",
+          "content": "v=spf1 include:spf.protection.outlook.com -all",
+          "ttl": 600,
+          "priority": 0
+        },
+        {
+          "id": "528506207",
+          "type": "TXT",
+          "name": "_acme-challenge",
+          "content": "Jo61ztdEPyJ83YGUwIWIaQGtRK1E5Pq16NIUCdXM9qM",
+          "ttl": 600
+        },
+        {
+          "id": "528506208",
+          "type": "TXT",
+          "name": "_acme-challenge",
+          "content": "T59Gv8FMXlnkZfIVbgeMar8JXiD78CrUdBi5iDZRBB8",
+          "ttl": 600
+        }
+      ]
+    },
+    "changes": [
+      {
+        "action": "create",
+        "record": {
+          "type": "A",
+          "name": "mx1",
+          "content": "20.10.114.197",
+          "ttl": 600
+        },
+        "reason": "desired record is missing"
+      },
+      {
+        "action": "update",
+        "record": {
+          "type": "MX",
+          "name": "@",
+          "content": "mx1.ouro.bot",
+          "ttl": 600,
+          "priority": 10
+        },
+        "currentRecord": {
+          "id": "540390853",
+          "type": "MX",
+          "name": "@",
+          "content": "ouro-bot.mail.protection.outlook.com",
+          "ttl": 600,
+          "priority": 0
+        },
+        "reason": "desired record differs from current provider record"
+      },
+      {
+        "action": "create",
+        "record": {
+          "type": "TXT",
+          "name": "_dmarc",
+          "content": "v=DMARC1; p=none; rua=mailto:dmarc@ouro.bot",
+          "ttl": 600
+        },
+        "reason": "desired record is missing"
+      }
+    ],
+    "preservedRecords": [
+      {
+        "id": "528506490",
+        "type": "ALIAS",
+        "name": "@",
+        "content": "uixie.porkbun.com",
+        "ttl": 600
+      },
+      {
+        "id": "528506492",
+        "type": "CNAME",
+        "name": "*",
+        "content": "uixie.porkbun.com",
+        "ttl": 600
+      },
+      {
+        "id": "540390924",
+        "type": "CNAME",
+        "name": "autodiscover",
+        "content": "autodiscover.outlook.com",
+        "ttl": 600,
+        "priority": 0
+      },
+      {
+        "id": "528505537",
+        "type": "NS",
+        "name": "@",
+        "content": "curitiba.porkbun.com",
+        "ttl": 86400
+      },
+      {
+        "id": "528505536",
+        "type": "NS",
+        "name": "@",
+        "content": "fortaleza.porkbun.com",
+        "ttl": 86400
+      },
+      {
+        "id": "528505534",
+        "type": "NS",
+        "name": "@",
+        "content": "maceio.porkbun.com",
+        "ttl": 86400
+      },
+      {
+        "id": "528505535",
+        "type": "NS",
+        "name": "@",
+        "content": "salvador.porkbun.com",
+        "ttl": 86400
+      },
+      {
+        "id": "530968606",
+        "type": "TXT",
+        "name": "@",
+        "content": "google-site-verification=WXUIjHyie17jPtPxOPJ24hzDCiWWbCcxJOiTCrKBZVo",
+        "ttl": 600,
+        "priority": 0
+      },
+      {
+        "id": "540390516",
+        "type": "TXT",
+        "name": "@",
+        "content": "MS=ms39590390",
+        "ttl": 600,
+        "priority": 0
+      },
+      {
+        "id": "540390888",
+        "type": "TXT",
+        "name": "@",
+        "content": "v=spf1 include:spf.protection.outlook.com -all",
+        "ttl": 600,
+        "priority": 0
+      },
+      {
+        "id": "528506207",
+        "type": "TXT",
+        "name": "_acme-challenge",
+        "content": "Jo61ztdEPyJ83YGUwIWIaQGtRK1E5Pq16NIUCdXM9qM",
+        "ttl": 600
+      },
+      {
+        "id": "528506208",
+        "type": "TXT",
+        "name": "_acme-challenge",
+        "content": "T59Gv8FMXlnkZfIVbgeMar8JXiD78CrUdBi5iDZRBB8",
+        "ttl": 600
+      }
+    ],
+    "certificateActions": [
+      {
+        "action": "retrieve-and-store",
+        "host": "mx1.ouro.bot",
+        "secretItem": "runtime/mail/certificates/mx1.ouro.bot"
+      }
+    ]
+  },
+  "applied": []
+}

@@ -24,9 +24,9 @@ Bring Agent Mail to full production shape across Ouro Work Substrate and the Our
 - [ ] Native agent mail and delegated human mailbox source stay separate in protocol records, storage compartments, access tools, Outlook, audit, policy, recovery, and prompt/sense context.
 - [x] The harness vault surface is corrected before DNS/mail implementation: generic human-facing vault item commands exist, notes are first-class, `ouro connect` remains harness-managed only, and templates/compatibility aliases never create new credential species.
 - [x] The harness vault-item branch is merged, published through the harness npm release lane, and installed locally before DNS/mail workflow code depends on the new surface.
-- [ ] DNS/mail production workflows consume explicit non-secret bindings that reference generic vault item paths; no code or docs treat the referenced item as an ops credential, authority, Porkbun credential, DNS credential, or provider-shaped ontology.
+- [x] DNS/mail production workflows consume explicit non-secret bindings that reference generic vault item paths; no code or docs treat the referenced item as an ops credential, authority, Porkbun credential, DNS credential, or provider-shaped ontology.
 - [x] Shared mail protocol semantics are protected by a consumed `@ouro/work-protocol` package boundary or generated/schema contract tests so harness and substrate cannot drift silently.
-- [ ] Production MX points to a proven port-25 edge with STARTTLS, size limits, transient/permanent failures, rate limits, recipient limits, and body-safe observability.
+- [x] Production MX points to a proven port-25 edge with STARTTLS, size limits, transient/permanent failures, rate limits, recipient limits, and body-safe observability.
 - [ ] Native live mail to `slugger@ouro.bot` reaches encrypted Blob storage, decrypts through Slugger's vault key, enters the right Imbox/Screener state, and behaves as a body-safe sense.
 - [ ] Ari's delegated HEY source is backfilled from MBOX with provenance/freshness and receives all future forwarded mail at `me.mendelow.ari.slugger@ouro.bot` with owner/source labels everywhere.
 - [ ] HEY forwarding onboarding is resumable, browser/MFA-aware, source-scoped, and recoverable when forwarding is missing, stale, or lossy.
@@ -35,7 +35,7 @@ Bring Agent Mail to full production shape across Ouro Work Substrate and the Our
 - [ ] Delegated human mail never grants send-as-human authority by default; follow-ups based on Ari's HEY mail send from the agent identity unless a future delegated-send product is approved.
 - [ ] SPF, DKIM/DKIM2 where required, and DMARC records are applied and verified for the chosen sender domain.
 - [ ] Recovery docs/tooling cover DNS, port 25, Mail Control, vault/key drift, HEY forwarding, Blob access, decryption, wrong placement/provenance, outbound provider failures, and delivery events.
-- [ ] Hosted substrate packaging/deployment is documented and verified as private commit-addressed Docker images plus Bicep/GitHub Actions deploy, not an npm package for deployable services.
+- [x] Hosted substrate packaging/deployment is documented and verified as private commit-addressed Docker images plus Bicep/GitHub Actions deploy, not an npm package for deployable services.
 - [x] Branch protections for `ouro-work-substrate` and `ouroboros` require the intended green checks, enforce admins, require linear history, and require conversation resolution.
 - [ ] Live smoke proves hosted health, mailbox/source ensure, SMTP accept/reject, encryption/decryption, native Screener/Imbox, delegated HEY backfill and forward, autonomous native send policy, provider event reconciliation, and Ouro Outlook audit.
 - [ ] `npm run ci:local` passes in `ouro-work-substrate`.
@@ -151,7 +151,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: App/infra changes, deployment workflow updates, docs, and proof artifacts.
 **Acceptance**: App and deploy path are ready for live edge proof: SMTP can advertise STARTTLS from mounted PEM material, enforce size/recipient/connection/rate limits, store encrypted mail, reject unknown recipients, and avoid relay/submission behavior. Live port-25 proof remains Unit 4c.
 
-### ⬜ Unit 4c: Production SMTP Edge — Coverage And Refactor
+### ✅ Unit 4c: Production SMTP Edge — Coverage And Refactor
 **What**: Run local and deployed SMTP policy tests, inspect logs for body leakage, and document rollback/diagnostics.
 **Output**: Test logs and operations updates.
 **Acceptance**: Port-25 proof is reproducible or a fallback edge is live and proven.
@@ -264,3 +264,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 21:27 Unit 3c complete: closed DNS workflow coverage and Nerves observability, added legacy flat-payload support for the real Slugger Porkbun vault item, normalized live Porkbun DNS records before planning, and proved a read-only `ouro.bot` DNS plan with no secret leakage. Evidence lives in `unit3c-coverage-repair.md`.
 - 2026-04-22 21:31 Unit 4a complete: added red mail-ingress tests for STARTTLS/SIZE advertisement, pre-DATA declared-size rejection, recipient-count limits, and body-safe DATA failure responses/logs. Evidence lives in `unit4a-red-tests.md`.
 - 2026-04-22 21:42 Unit 4b complete: implemented STARTTLS/SIZE, recipient/connection/rate limits, safe transient failures, TLS secret-file deployment, workflow guards, and operations docs. Evidence lives in `unit4b-implementation.md`.
+- 2026-04-22 22:35 Unit 4c complete: public `ouro.bot` MX now points at a proven Container Apps port-25 edge with STARTTLS, SMTP policy checks, DNS backup/apply/verify, body-safe log inspection, deployment evidence, and harness DNS certificate workflow support at `9d14f5dd`. Evidence lives in `unit4c-production-edge-proof.md`; real provider delivery remains the next human-sender smoke.

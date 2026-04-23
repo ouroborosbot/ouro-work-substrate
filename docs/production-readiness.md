@@ -20,7 +20,7 @@ A change should not be considered production-ready unless these are true:
 - New private mail keys are returned exactly once.
 - Hosted mail payloads are encrypted at rest.
 - Agent-side decryption works through vault-held private keys.
-- Production MX, HEY forwarding/export, browser auth/MFA, and autonomous sending remain human-gated.
+- DNS/MX repointing, HEY forwarding/export, browser auth/MFA, human-controlled live mail sends, and autonomous sending remain human-gated.
 
 ## Live Proof To Preserve
 
@@ -33,7 +33,7 @@ The production proof for Slugger established:
 - Storage: Azure Blob Storage encrypted payload records.
 - Encryption: `RSA-OAEP-SHA256+A256GCM`.
 - Deployment: Azure Container Apps through GitHub Actions and Azure OIDC.
-- SMTP proof ingress: port `2525`.
+- SMTP edge: public port `25` mapped to Mail Ingress target port `2525`.
 
 Future changes do not need to reuse Slugger for every test, but they must preserve the same properties.
 
@@ -91,9 +91,8 @@ For docs changes:
 
 These are intentionally not complete:
 
-- Production MX cutover.
-- Port `25` production ingress decision.
-- HEY forwarding/export setup.
+- Native provider-level inbound smoke from a human-controlled external mailbox.
+- Delegated HEY forwarding/export setup.
 - Autonomous sending.
 - Owner-facing recovery views for discarded/quarantined mail.
 - Invite records, per-agent quotas, and revocation tooling.

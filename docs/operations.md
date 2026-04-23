@@ -13,8 +13,10 @@ Current proof deployment:
 - Resource group: `rg-ouro-work-substrate`.
 - Environment: `prod`.
 - Region: `eastus2`.
-- SMTP proof port: `2525`.
-- Production MX: not cut over.
+- SMTP public edge: `mx1.ouro.bot:25`.
+- SMTP app target port: `2525`.
+- Production MX: `ouro.bot MX 10 mx1.ouro.bot`.
+- Current ingress revision: check `az containerapp revision list --resource-group rg-ouro-work-substrate --name ouro-prod-mail-ingress`.
 
 ## Daily Confidence Check
 
@@ -110,9 +112,12 @@ Safe DNS work follows this order:
 2. `plan`: produce a dry-run diff from current records to desired records, preserving anything outside the resource allowlist.
 3. `apply`: make the reviewed allowlisted changes only.
 4. `verify`: re-read provider records and public DNS until the expected records appear or propagation is still pending.
-5. `rollback`: restore allowlisted records from a recorded backup when a change is wrong.
+5. `certificate`: retrieve the allowlisted TLS certificate bundle and store it in the configured agent vault item without printing private key material.
+6. `rollback`: restore allowlisted records from a recorded backup when a change is wrong.
 
 Do not edit records outside the binding allowlist during this workflow. Preserve Microsoft, Google, and other third-party verification records unless a later binding intentionally manages them. Artifacts may include record names, types, TTLs, provider ids, and public certificate chains; they must never include provider keys, secret headers, certificate private keys, raw email bodies, or vault unlock material.
+
+The certificate step stores an ordinary workflow-managed vault item named by `certificate.storeItem`; the binding and deploy configuration are still the machine-readable contracts. Do not parse certificate item notes.
 
 ## Smoke Test
 
@@ -124,11 +129,11 @@ Run this after a meaningful deployment. Do not skip the encryption/decryption pr
 4. Verify unauthenticated Mail Control and Vault Control mutations return `401`.
 5. Call `POST /v1/mailboxes/ensure` on Mail Control with a bearer token.
 6. Verify first creation returns private keys, public mailbox/source records, hosted registry/Blob coordinates, and that repeated ensure calls return zero new keys while preserving the same public key ids.
-7. Check SMTP `EHLO` on the proof TCP port, currently `2525`.
+7. Check SMTP `EHLO` on public port `25` from a network that can originate outbound SMTP. Many residential, hotel, and cloud networks block outbound port `25`; when that happens, use an external TCP checker for reachability and a real mailbox-provider send for full SMTP delivery proof.
 8. When TLS secrets are configured, verify `STARTTLS` is advertised; `AUTH` must not be advertised.
 9. Verify `SIZE` is advertised and a declared oversized `MAIL FROM SIZE=` is rejected before `DATA`.
 10. Verify the recipient limit rejects excess recipients in one transaction.
-11. Send accepted SMTP mail to the proof TCP port.
+11. Send accepted SMTP mail through the current public edge. In proof deployments that intentionally expose a nonstandard port, record that port explicitly in the artifact.
 12. Verify accepted mail appears in Blob Storage as encrypted mail.
 13. Decrypt through the private keys stored in the owning agent vault or, during first proof only, the one-time keys returned by Mail Control.
 14. Confirm native mail lands in Screener and delegated HEY alias mail lands in Imbox with owner/source provenance.
@@ -190,7 +195,8 @@ These are not chores for an agent to quietly complete. They require explicit hum
 - Domain/API access enablement and any provider portal confirmation that cannot be completed through the approved workflow.
 - HEY export and forwarding setup.
 - Browser auth and MFA.
-- Production MX cutover when the target edge has not yet been proven.
+- DNS/MX cutover or repointing when the target edge has not yet been proven.
+- Live mail sent from a human-controlled mailbox when a smoke test needs real provider delivery.
 - Autonomous sending.
 
 ## If Something Feels Weird
