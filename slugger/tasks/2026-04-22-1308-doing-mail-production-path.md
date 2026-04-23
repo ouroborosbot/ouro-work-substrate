@@ -196,10 +196,10 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Provider adapter, hosted callback/event code, DNS records, docs, and deploy changes.
 **Acceptance**: Confirmed and autonomous native sends produce provider ids and later delivery/bounce/event updates.
 
-### ⬜ Unit 7c: Outbound Provider And Events — Coverage And Refactor
+### ✅ Unit 7c: Outbound Provider And Events — Coverage And Refactor
 **What**: Cover credential failure, provider retry, duplicate events, unknown provider messages, and body-safe event logs.
 **Output**: Coverage artifacts and operations docs.
-**Acceptance**: 100% coverage on new provider/event code and live provider smoke passes.
+**Acceptance**: 100% coverage on new provider/event code and local provider smoke passes. Live provider smoke remains Unit 10 after deployment, domain authentication, provider credentials, and event subscription wiring are in place.
 
 ### ⬜ Unit 8a: Outlook, Tools, And Audit Ergonomics — Tests
 **What**: Write failing tests/screenshots for clear native versus delegated labeling, source folders, access logs, autonomous send audit, delivery events, recovery drawers, and no body leakage in summaries.
@@ -276,3 +276,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-23 01:10 Unit 6c complete: closed native autonomy coverage/refactor in substrate and harness at 100%, passed substrate `ci:local`, harness full coverage/Nerves audit, and recorded the Unit 6 versus Unit 7 provider-event boundary. Evidence lives in `unit6c-coverage-refactor.md`.
 - 2026-04-23 01:14 Unit 7a complete: added red substrate/harness tests for outbound provider submission, provider message ids, ACS Event Grid delivery reports, hosted webhook validation, body-safe delivery event sink payloads, and idempotent reconciliation. Evidence lives in `unit7a-red-tests.md`.
 - 2026-04-23 01:31 Unit 7b complete: implemented shared outbound provider states/events, Mail Control ACS Event Grid webhook handling, harness ACS HMAC provider client, explicit vault-item credential binding fields, Outlook/tool status visibility, and docs for the harness/package versus hosted/deploy lanes. Evidence lives in `unit7b-implementation.md`.
+- 2026-04-23 02:07 Unit 7c complete: closed substrate and harness provider/event branch coverage at 100%, including ACS malformed events, sparse provider responses, no-note credential bindings, body-safe webhook failures, unknown provider message reconciliation, and `mail_send` submitted/provider fallback output. Evidence lives in `unit7c-coverage-refactor.md`.
