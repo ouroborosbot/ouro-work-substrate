@@ -181,7 +181,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Harness tools/sense/outbound code, provider config, hosted event endpoints if needed, docs.
 **Acceptance**: Slugger can receive native mail and send as `slugger@ouro.bot` within explicit native-agent policy while refusing out-of-policy sends.
 
-### ⬜ Unit 6c: Native Agent Mail Autonomy — Coverage And Refactor
+### ✅ Unit 6c: Native Agent Mail Autonomy — Coverage And Refactor
 **What**: Cover provider failures, bounce/delivery events, policy revocation, trust downgrade, mail loops, and audit visibility.
 **Output**: Coverage artifacts and autonomy policy docs.
 **Acceptance**: 100% coverage on new autonomy code and no unsafe send path remains untested.
@@ -273,3 +273,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-23 00:27 Unit 5 merge/release/deploy evidence captured: substrate PR #17 merged/deployed to Azure at `cdc84d0`, harness PR #590 merged/published alpha.469, local `ouro`/`ouro.bot` report `0.1.0-alpha.469`, and hosted health checks are green. Evidence lives in `unit5d-merge-release-deploy.md`.
 - 2026-04-23 00:42 Unit 6a complete: added and pushed red substrate/harness tests for native autonomous send policy, confirmation fallback, rate/recipient limits, kill switch, delegated send-as-human refusal, runtime config parsing, docs guidance, and native receive attention behavior. Evidence lives in `unit6a-red-tests.md`.
 - 2026-04-23 00:50 Unit 6b complete: implemented shared native-mail autonomy policy/evaluator contracts, harness autonomous send enforcement and audit fields, runtime config parsing, guarded `mail_send` behavior, and outbound docs. Evidence lives in `unit6b-implementation.md`.
+- 2026-04-23 01:10 Unit 6c complete: closed native autonomy coverage/refactor in substrate and harness at 100%, passed substrate `ci:local`, harness full coverage/Nerves audit, and recorded the Unit 6 versus Unit 7 provider-event boundary. Evidence lives in `unit6c-coverage-refactor.md`.
