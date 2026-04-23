@@ -110,3 +110,44 @@ ouro account ensure --agent slugger --owner-email ari@mendelow.me --source hey -
 5. Verify Slugger runtime config has hosted Blob coordinates, native and delegated aliases, and fresh private key ids without printing private key material.
 6. Resume live smoke: native inbound, delegated HEY backfill/forwarding, outbound provider/events, and Outlook audit.
 
+## Live Progress
+
+Update written during the 2026-04-23 production run after the rotation repair shipped.
+
+Completed:
+
+- Substrate PR #21 merged, deployed, and left Mail Control healthy with hosted key rotation available.
+- Harness PR #592 merged, published `0.1.0-alpha.471`, installed globally, and made `--rotate-missing-mail-keys` available to `ouro account ensure`.
+- Live repair command succeeded for Slugger without printing secret key material:
+
+```text
+ouro account ensure --agent slugger --owner-email ari@mendelow.me --source hey --rotate-missing-mail-keys
+```
+
+- Slugger runtime config now points at the hosted Blob store and contains current native plus delegated private key ids.
+- Re-running account ensure without the rotation flag is idempotent.
+
+New production finding:
+
+- The first live native SMTP smoke after rotation was accepted by `mail-ingress`, but the stored message was encrypted to the old missing native key id `mail_slugger-native_6e4d749b49ae4bb9`.
+- That means hosted Mail Ingress could keep a stale Azure registry cache across rotation and continue encrypting future mail to lost public keys.
+- The harness mailbox reader also treated one undecryptable historic/stale-key record as fatal for the whole mailbox search.
+
+Follow-up fixes now in flight:
+
+- Substrate branch `slugger/mail-registry-cache-and-decrypt-recovery` makes Azure Blob registry reads fresh by default (`--registry-refresh-ms 0`) and documents cache opt-in as unsafe without an invalidation plan.
+- Harness branch `slugger/mail-missing-key-reader-recovery` makes `mail_recent`, `mail_search`, and `mail_thread` keep working around missing old private keys while returning body-safe recovery warnings. It still throws on non-missing-key decrypt corruption.
+
+Current verification:
+
+```text
+# substrate
+npx vitest run apps/mail-ingress/src/__tests__/registry.test.ts apps/mail-ingress/src/__tests__/args.test.ts
+npm run ci:local
+
+# harness
+npx vitest run src/__tests__/mailroom/tools-mail.test.ts
+npm run test:coverage
+```
+
+Do not rotate keys again as a cache-invalidation strategy. The correct production fix is fresh registry reads or explicit cache invalidation before accepting mail after rotation. Old mail already encrypted to a lost key remains unrecoverable unless the old private key can be restored from the owning agent vault.

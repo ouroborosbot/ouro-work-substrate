@@ -120,7 +120,7 @@ export function parseMailIngressArgs(args: string[]): MailIngressArgs {
     registryContainer: optionalValue(expanded, "--registry-container") ?? "mailroom",
     registryBlob: optionalValue(expanded, "--registry-blob") ?? "registry/mailroom.json",
     registryDomain: optionalValue(expanded, "--registry-domain") ?? "ouro.bot",
-    registryRefreshMs: optionalNumber(expanded, "--registry-refresh-ms", 30_000),
+    registryRefreshMs: optionalNumber(expanded, "--registry-refresh-ms", 0),
     ...(storePath ? { storePath } : {}),
     ...(azureAccountUrl ? { azureAccountUrl } : {}),
     azureContainer: optionalValue(expanded, "--azure-container") ?? "mailroom",

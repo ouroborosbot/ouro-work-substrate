@@ -55,12 +55,12 @@ export class AzureBlobRegistryProvider implements MailroomRegistryProvider {
     private readonly containerName: string,
     private readonly blobName: string,
     private readonly fallbackDomain: string,
-    private readonly refreshMs = 30_000,
+    private readonly refreshMs = 0,
   ) {}
 
   async current(): Promise<MailroomRegistry> {
     const now = Date.now()
-    if (this.cached && now - this.lastLoad < this.refreshMs) return this.cached
+    if (this.refreshMs > 0 && this.cached && now - this.lastLoad < this.refreshMs) return this.cached
     const container = this.serviceClient.getContainerClient(this.containerName)
     const blob = container.getBlockBlobClient(this.blobName)
     try {
@@ -85,4 +85,3 @@ export class AzureBlobRegistryProvider implements MailroomRegistryProvider {
     }
   }
 }
-

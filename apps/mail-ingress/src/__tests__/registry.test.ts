@@ -88,6 +88,17 @@ describe("mail ingress registry providers", () => {
     now.mockRestore()
   })
 
+  it("reloads Azure Blob registries on every read by default so key rotation cannot serve stale keys", async () => {
+    const serviceClient = new FakeBlobServiceClient()
+    const provider = new AzureBlobRegistryProvider(serviceClient as never, "mailroom", "registry/mailroom.json", "ouro.bot")
+
+    serviceClient.container.blob.data = Buffer.from(JSON.stringify(ensureMailboxRegistry({ agentId: "slugger" }).registry), "utf-8")
+    expect((await provider.current()).mailboxes[0]?.canonicalAddress).toBe("slugger@ouro.bot")
+
+    serviceClient.container.blob.data = Buffer.from(JSON.stringify(ensureMailboxRegistry({ agentId: "clio" }).registry), "utf-8")
+    expect((await provider.current()).mailboxes[0]?.canonicalAddress).toBe("clio@ouro.bot")
+  })
+
   it("throws Azure Blob registry load errors when there is no cached copy", async () => {
     const serviceClient = new FakeBlobServiceClient()
     serviceClient.container.blob.data = Buffer.from("{}", "utf-8")

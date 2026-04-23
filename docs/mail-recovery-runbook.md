@@ -45,7 +45,7 @@ If those lanes are confused, stop and fix provenance before doing more delivery 
 | DNS/MX drift | Run DNS `backup`, `plan`, `verify`, and, after review, `apply` or `rollback` from `infra/dns/ouro.bot.binding.json`. Preserve records outside the allowlist. | Registrar/API access must already be available in the agent vault; human approval is required for intentional cutover or provider-auth record changes. | DNS backup JSON, plan diff, provider record ids, public DNS answers. |
 | port 25 or STARTTLS failure | Check `GET /health`, Container Apps revision, deploy outputs, TCP reachability, `EHLO`, `STARTTLS`, and `SIZE`. Rerun `Deploy Azure` if config drift is likely. | If a network blocks outbound port 25, use an external checker or real mailbox-provider send; do not ask the human to debug a local ISP block as an app failure. | SMTP transcript without message body, STARTTLS advertisement, health output, revision id. |
 | hosted registry/vault key drift | Call `POST /v1/mailboxes/ensure` through Mail Control. Rerun `ouro account ensure` or `ouro connect mail` from the harness so returned one-time keys are stored in the owning agent vault. If ensure reports hosted public key ids that are not in the vault, run `ouro account ensure --rotate-missing-mail-keys` or `ouro connect mail --rotate-missing-mail-keys`; the harness calls `POST /v1/mailboxes/rotate-keys` only for missing key ids and stores the new one-time private keys. | rotation cannot recover mail already encrypted to a lost private key; it only makes future mail decryptable under fresh keys. Human/provider help may still be needed if old messages matter. | Key ids, mailbox/source records, ensure and rotation counts, no private key material. |
-| Blob reader or decryption failure | Verify hosted Blob coordinates in the harness `runtime/config` item, managed identity/Blob role assignment, and that the matching key id exists in the agent vault. | Human may need to unlock or repair the agent vault if vault access is blocked. | Blob account/container/blob names, key ids, sanitized `AUTH_REQUIRED:mailroom` or decryption error. |
+| Blob reader or decryption failure | Verify hosted Blob coordinates in the harness `runtime/config` item, managed identity/Blob role assignment, and that the matching key id exists in the agent vault. If only some messages fail with missing private key warnings, keep the mailbox usable and identify whether those records were encrypted before rotation. | Human may need to unlock or repair the agent vault if vault access is blocked. Mail already encrypted to a lost key needs that exact old key restored; rotation only repairs future mail. | Blob account/container/blob names, key ids, sanitized `AUTH_REQUIRED:mailroom` or decryption warning. |
 | wrong mailbox provenance | Inspect registry/source grants, accepted message metadata, Ouro Outlook, `mail_recent`, and `mail_access_log`. Repair classification or source state before importing/forwarding more mail. | Human confirms the intended owner/source when the source grant is ambiguous. | Message id, recipient, mailbox role, compartment kind, owner email, source label. |
 | HEY export/backfill stale | Ask Slugger to guide browser export, then run `ouro mail import-mbox` with owner/source flags. Compare import counts and `sourceFreshThrough`. | HEY browser login, MFA, CAPTCHA, export request, and download are human-at-keyboard gates. | MBOX filename/path, import counts, newest message date, owner/source labels. |
 | HEY forwarding missing or lossy | Verify source state, target alias, recent forwarded probes, `mail_recent`, `mail_screener`, and Outlook source folders. Wrong-target probes to `slugger@ouro.bot` are recoverable setup friction, not delegated mail. | Human confirms HEY forwarding/extension settings and final forwarding confirmation. HEY can miss spam-classified or authentication-broken forwarded mail. | Forwarding status, target alias, probe message id, observed recipient, safe delivery summary. |
@@ -63,6 +63,17 @@ If those lanes are confused, stop and fix provenance before doing more delivery 
 - Harness audit/read tools: `mail_recent`, `mail_screener`, `mail_access_log`, `mail_thread`, and Ouro Outlook.
 - Outbound provider: Azure Communication Services with Event Grid reconciliation.
 - Native autonomous-send policy: `mailroom.autonomousSendPolicy`.
+
+## Registry Freshness After Key Rotation
+
+Mail Ingress reads the Azure public registry fresh by default. Do not opt into `--registry-refresh-ms` caching for production unless you have accepted the stale-key risk and have a compensating invalidation plan. A stale registry can make future mail encrypt to a public key whose private key was already lost, and no hosted service can decrypt that record afterward.
+
+If a post-rotation smoke message reports a missing old key id:
+
+1. Confirm Mail Control `GET /health` and Mail Ingress `GET /health` are served by the expected deployed revision.
+2. Read the public registry body-safe and compare mailbox/source key ids with the owning agent vault status.
+3. Check Mail Ingress startup logs for the registry mode and `registryRefreshMs` value.
+4. Send a new probe only after freshness is confirmed; do not rotate repeatedly as a cache invalidation mechanism.
 
 ## Rollback Order
 
