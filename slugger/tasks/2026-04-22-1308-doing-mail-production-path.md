@@ -116,7 +116,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Red harness and hosted control-plane tests.
 **Acceptance**: Tests fail where setup can still be local-only or drift is not recoverable.
 
-### ⬜ Unit 2b: Hosted Provisioning Truth — Implementation
+### ✅ Unit 2b: Hosted Provisioning Truth — Implementation
 **What**: Implement production-mode setup/repair that uses hosted Mail Control as registry truth, stores keys and Blob coordinates in `runtime/config`, keeps local mode explicit, and gives actor-labeled recovery guidance.
 **Output**: Harness setup code, hosted API/client code if needed, docs, and tests.
 **Acceptance**: Repeated setup is boring/idempotent; private keys are not printed or hosted; Slugger can read hosted Blob mail through vault-held keys.
@@ -257,3 +257,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 19:37 Unit 1b complete: implemented shared/harness two-lane provenance descriptors, access-log and attention provenance, native outbound authority fields, Outlook owner-scoped source folders, legacy fallbacks, and 100% coverage. Evidence lives in `unit1b-implementation.md`.
 - 2026-04-22 19:48 Unit 1c complete: added canonical substrate mail provenance contract JSON, harness vendored contract drift tests, docs for the private-package contract lane, and 100% coverage evidence. Evidence lives in `unit1c-coverage-contract.md`.
 - 2026-04-22 19:53 Unit 2a complete: added red hosted provisioning tests for Mail Control public records/Blob coordinates, harness production setup calling hosted Mail Control, key preservation, and hosted registry/vault drift detection. Evidence lives in `unit2a-red-tests.md`.
+- 2026-04-22 19:59 Unit 2b complete: Mail Control now returns public records and hosted coordinates; harness hosted setup calls Mail Control, stores returned keys, preserves existing keys, records Blob reader coordinates, and detects key-id drift. Evidence lives in `unit2b-implementation.md`.
