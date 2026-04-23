@@ -24,7 +24,23 @@ export type MailDecisionAction =
 export type MailScreenerCandidateStatus = "pending" | "allowed" | "discarded" | "quarantined" | "restored"
 export type MailOutboundStatus = "draft" | "sent" | "failed"
 export type MailboxRole = "agent-native-mailbox" | "delegated-human-mailbox"
+export type MailSendAuthority = "agent-native"
+export type MailSendMode = "confirmed" | "autonomous"
 export type MailIngestKind = "smtp" | "mbox-import"
+export type MailAutonomyDecisionMode = "autonomous" | "confirmation-required" | "blocked" | "confirmed"
+export type MailAutonomyDecisionFallback = "CONFIRM_SEND" | "none"
+export type MailAutonomyDecisionCode =
+  | "allowed"
+  | "explicit-confirmation"
+  | "autonomy-policy-disabled"
+  | "autonomy-kill-switch"
+  | "recipient-not-allowed"
+  | "recipient-limit-exceeded"
+  | "autonomous-rate-limit"
+  | "delegated-send-as-human-not-authorized"
+  | "agent-mismatch"
+  | "native-mailbox-mismatch"
+  | "draft-not-sendable"
 
 export interface MailAuthenticationSummary {
   spf: MailAuthenticationState
@@ -97,11 +113,49 @@ export interface MailScreenerCandidate {
   resolvedByDecisionId?: string
 }
 
+export interface MailAutonomyRateLimit {
+  maxSends: number
+  windowMs: number
+}
+
+export interface MailAutonomyPolicy {
+  schemaVersion: 1
+  policyId: string
+  agentId: string
+  mailboxAddress: string
+  enabled: boolean
+  killSwitch: boolean
+  allowedRecipients: string[]
+  allowedDomains: string[]
+  maxRecipientsPerMessage: number
+  rateLimit: MailAutonomyRateLimit
+  actor?: MailDecisionActor
+  reason?: string
+  updatedAt?: string
+}
+
+export interface MailAutonomyDecision {
+  schemaVersion: 1
+  allowed: boolean
+  mode: MailAutonomyDecisionMode
+  code: MailAutonomyDecisionCode
+  reason: string
+  evaluatedAt: string
+  recipients: string[]
+  fallback: MailAutonomyDecisionFallback
+  policyId?: string
+  remainingSendsInWindow?: number
+}
+
 export interface MailOutboundRecord {
   schemaVersion: 1
   id: string
   agentId: string
   status: MailOutboundStatus
+  mailboxRole?: MailboxRole
+  sendAuthority?: MailSendAuthority
+  ownerEmail?: string | null
+  source?: string | null
   from: string
   to: string[]
   cc: string[]
@@ -112,6 +166,8 @@ export interface MailOutboundRecord {
   reason: string
   createdAt: string
   updatedAt: string
+  sendMode?: MailSendMode
+  policyDecision?: MailAutonomyDecision
   sentAt?: string
   transport?: string
   transportMessageId?: string
@@ -254,6 +310,33 @@ export interface MailroomPublicEnsureResult extends MailroomEnsureResult {
   generatedPrivateKeys: Record<string, string>
 }
 
+export interface BuildNativeMailAutonomyPolicyInput {
+  agentId: string
+  mailboxAddress: string
+  enabled: boolean
+  killSwitch: boolean
+  allowedRecipients?: string[]
+  allowedDomains?: string[]
+  maxRecipientsPerMessage: number
+  rateLimit: MailAutonomyRateLimit
+  actor?: MailDecisionActor
+  reason?: string
+  updatedAt?: string
+}
+
+export interface EvaluateNativeMailSendPolicyInput {
+  policy: MailAutonomyPolicy
+  draft: MailOutboundRecord
+  recentOutbound: MailOutboundRecord[]
+  now?: Date
+}
+
+export interface BuildConfirmedMailSendDecisionInput {
+  draft: MailOutboundRecord
+  policy?: MailAutonomyPolicy
+  now?: Date
+}
+
 const LOCAL_PART_LIMIT = 64
 const SNIPPET_LIMIT = 240
 const RAW_OBJECT_PREFIX = "raw"
@@ -283,6 +366,159 @@ export function safeAddressPart(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
+}
+
+function normalizeDomain(value: string): string {
+  return value.trim().toLowerCase().replace(/^@/, "")
+}
+
+function outboundRecipients(record: Pick<MailOutboundRecord, "to" | "cc" | "bcc">): string[] {
+  return [...record.to, ...record.cc, ...record.bcc].map(normalizeMailAddress)
+}
+
+function autonomyPolicyId(input: Omit<MailAutonomyPolicy, "schemaVersion" | "policyId">): string {
+  return `mail_auto_${crypto.createHash("sha256").update(stableJson(input)).digest("hex").slice(0, 16)}`
+}
+
+export function buildNativeMailAutonomyPolicy(input: BuildNativeMailAutonomyPolicyInput): MailAutonomyPolicy {
+  const normalized: Omit<MailAutonomyPolicy, "schemaVersion" | "policyId"> = {
+    agentId: safeAddressPart(input.agentId) || "agent",
+    mailboxAddress: normalizeMailAddress(input.mailboxAddress),
+    enabled: input.enabled,
+    killSwitch: input.killSwitch,
+    allowedRecipients: [...new Set((input.allowedRecipients ?? []).map(normalizeMailAddress))].sort(),
+    allowedDomains: [...new Set((input.allowedDomains ?? []).map(normalizeDomain).filter(Boolean))].sort(),
+    maxRecipientsPerMessage: Math.max(1, Math.floor(input.maxRecipientsPerMessage)),
+    rateLimit: {
+      maxSends: Math.max(0, Math.floor(input.rateLimit.maxSends)),
+      windowMs: Math.max(1, Math.floor(input.rateLimit.windowMs)),
+    },
+    ...(input.actor ? { actor: input.actor } : {}),
+    ...(input.reason ? { reason: input.reason } : {}),
+    ...(input.updatedAt ? { updatedAt: input.updatedAt } : {}),
+  }
+  return {
+    schemaVersion: 1,
+    policyId: autonomyPolicyId(normalized),
+    ...normalized,
+  }
+}
+
+function autonomyDecision(input: Omit<MailAutonomyDecision, "schemaVersion">): MailAutonomyDecision {
+  return { schemaVersion: 1, ...input }
+}
+
+function recipientDomain(recipient: string): string {
+  return recipient.slice(recipient.indexOf("@") + 1).toLowerCase()
+}
+
+function isRecipientAllowed(policy: MailAutonomyPolicy, recipient: string): boolean {
+  return policy.allowedRecipients.includes(recipient) || policy.allowedDomains.includes(recipientDomain(recipient))
+}
+
+function autonomousSentAt(record: MailOutboundRecord): string | null {
+  if (record.status !== "sent" || record.sendMode !== "autonomous") return null
+  return record.sentAt ?? record.updatedAt
+}
+
+function countRecentAutonomousSends(input: {
+  recentOutbound: MailOutboundRecord[]
+  nowMs: number
+  windowMs: number
+}): number {
+  const startsAt = input.nowMs - input.windowMs
+  return input.recentOutbound.filter((record) => {
+    const sentAt = autonomousSentAt(record)
+    if (!sentAt) return false
+    const sentMs = Date.parse(sentAt)
+    return Number.isFinite(sentMs) && sentMs >= startsAt && sentMs <= input.nowMs
+  }).length
+}
+
+export function evaluateNativeMailSendPolicy(input: EvaluateNativeMailSendPolicyInput): MailAutonomyDecision {
+  const now = input.now ?? new Date()
+  const evaluatedAt = now.toISOString()
+  const recipients = outboundRecipients(input.draft)
+  const policyId = input.policy.policyId
+  const blocked = (
+    code: MailAutonomyDecisionCode,
+    reason: string,
+    mode: MailAutonomyDecisionMode = "blocked",
+    fallback: MailAutonomyDecisionFallback = "none",
+  ) => autonomyDecision({
+    allowed: false,
+    mode,
+    code,
+    reason,
+    evaluatedAt,
+    recipients,
+    fallback,
+    policyId,
+  })
+
+  if (input.draft.status !== "draft") {
+    return blocked("draft-not-sendable", `Draft ${input.draft.id} is already ${input.draft.status}`)
+  }
+  if (input.draft.mailboxRole === "delegated-human-mailbox" || input.draft.ownerEmail || input.draft.source || input.draft.sendAuthority !== "agent-native") {
+    return blocked("delegated-send-as-human-not-authorized", "Delegated human mail does not grant send-as-human authority")
+  }
+  if (safeAddressPart(input.draft.agentId) !== input.policy.agentId) {
+    return blocked("agent-mismatch", `Draft belongs to ${input.draft.agentId}, not ${input.policy.agentId}`)
+  }
+  if (normalizeMailAddress(input.draft.from) !== input.policy.mailboxAddress) {
+    return blocked("native-mailbox-mismatch", `${input.draft.from} is not the native mailbox ${input.policy.mailboxAddress}`)
+  }
+  if (!input.policy.enabled) {
+    return blocked("autonomy-policy-disabled", "Autonomous native-agent mail policy is disabled", "confirmation-required", "CONFIRM_SEND")
+  }
+  if (input.policy.killSwitch) {
+    return blocked("autonomy-kill-switch", "Autonomous native-agent mail kill switch is enabled", "confirmation-required", "CONFIRM_SEND")
+  }
+  if (recipients.length > input.policy.maxRecipientsPerMessage) {
+    return blocked("recipient-limit-exceeded", `Autonomous native-agent mail is limited to ${input.policy.maxRecipientsPerMessage} recipient(s)`)
+  }
+  const unallowed = recipients.find((recipient) => !isRecipientAllowed(input.policy, recipient))
+  if (unallowed) {
+    return blocked(
+      "recipient-not-allowed",
+      `${unallowed} is not allowed for autonomous native-agent mail`,
+      "confirmation-required",
+      "CONFIRM_SEND",
+    )
+  }
+  const recentCount = countRecentAutonomousSends({
+    recentOutbound: input.recentOutbound,
+    nowMs: now.getTime(),
+    windowMs: input.policy.rateLimit.windowMs,
+  })
+  if (recentCount >= input.policy.rateLimit.maxSends) {
+    return blocked("autonomous-rate-limit", "Autonomous native-agent mail rate limit is exhausted")
+  }
+  return autonomyDecision({
+    allowed: true,
+    mode: "autonomous",
+    code: "allowed",
+    reason: "Autonomous native-agent mail policy allowed this send",
+    evaluatedAt,
+    recipients,
+    fallback: "none",
+    policyId,
+    remainingSendsInWindow: Math.max(0, input.policy.rateLimit.maxSends - recentCount - 1),
+  })
+}
+
+export function buildConfirmedMailSendDecision(input: BuildConfirmedMailSendDecisionInput): MailAutonomyDecision {
+  const evaluatedAt = (input.now ?? new Date()).toISOString()
+  return autonomyDecision({
+    allowed: true,
+    mode: "confirmed",
+    code: "explicit-confirmation",
+    reason: "Explicit confirmation authorized this native-agent send",
+    evaluatedAt,
+    recipients: outboundRecipients(input.draft),
+    fallback: "none",
+    ...(input.policy ? { policyId: input.policy.policyId } : {}),
+  })
 }
 
 export function reverseEmailRoute(ownerEmail: string): string {
