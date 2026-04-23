@@ -18,7 +18,9 @@ This is a production gate for later DNS/mail work: workflow code may reference o
 
 - PR: https://github.com/ouroborosbot/ouroboros/pull/587
 - Created: 2026-04-22
-- Initial status: open, ready for review, CI in progress
+- Result: merged 2026-04-23T02:03:57Z
+- Merge commit: `c4c784edc1f209504c2d991f23d9394132cf5f69`
+- PR CI: `coverage`, `integration`, and `package-e2e` passed.
 
 ## Local Verification Already Completed
 
@@ -43,8 +45,6 @@ Harness `.github/workflows/coverage.yml` is the release lane:
 
 ## Remaining Steps
 
-- Wait for PR CI.
-- Merge after required checks pass.
 - Watch the `main` publish job.
 - Verify npm `latest` resolves to the released version.
 - Install/repair local runtime through the supported bootstrap path.
@@ -58,4 +58,5 @@ Harness `.github/workflows/coverage.yml` is the release lane:
 
 - The first `gh pr create` attempt failed because `--head slugger/vault-item-surface` was parsed as an `owner:branch` pair. Retried successfully with `--head ouroborosbot:slugger/vault-item-surface`.
 - Before merge, local `ouro -v`, `npx ouro.bot@latest -v`, `@ouro.bot/cli@latest`, and `ouro.bot@latest` all reported `0.1.0-alpha.465`; `0.1.0-alpha.466` was not published yet. This is expected until the `main` publish job completes.
+- Post-merge `coverage-gate` push run for `main`: https://github.com/ouroborosbot/ouroboros/actions/runs/24812690091
 - Do not treat this unit as done until the installed runtime, not just the branch, has the surface.
