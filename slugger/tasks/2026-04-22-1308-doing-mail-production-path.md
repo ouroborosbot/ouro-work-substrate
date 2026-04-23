@@ -22,8 +22,8 @@ Bring Agent Mail to full production shape across Ouro Work Substrate and the Our
 - [ ] Production setup calls hosted Mail Control, stores one-time private keys in the owning agent vault, configures hosted Blob reader coordinates, enables Mail sense, and reports native plus delegated addresses without printing secrets.
 - [ ] Setup and repair are idempotent across hosted registry, local registry, vault config, source grants, keys, and Blob settings.
 - [ ] Native agent mail and delegated human mailbox source stay separate in protocol records, storage compartments, access tools, Outlook, audit, policy, recovery, and prompt/sense context.
-- [ ] The harness vault surface is corrected before DNS/mail implementation: generic human-facing vault item commands exist, notes are first-class, `ouro connect` remains harness-managed only, and provider-specific helpers such as Porkbun are templates/compatibility paths over ordinary vault items.
-- [ ] DNS provider access is represented as a generic agent-vault credential item plus an explicit workflow binding; the current `ouro.bot` binding can use Porkbun, but DNS automation must not make Porkbun a credential ontology.
+- [ ] The harness vault surface is corrected before DNS/mail implementation: generic human-facing vault item commands exist, notes are first-class, `ouro connect` remains harness-managed only, and templates/compatibility aliases never create new credential species.
+- [ ] DNS/mail production workflows consume explicit non-secret bindings that reference generic vault item paths; no code or docs treat the referenced item as an ops credential, authority, Porkbun credential, DNS credential, or provider-shaped ontology.
 - [ ] Production MX points to a proven port-25 edge with STARTTLS, size limits, transient/permanent failures, rate limits, recipient limits, and body-safe observability.
 - [ ] Native live mail to `slugger@ouro.bot` reaches encrypted Blob storage, decrypts through Slugger's vault key, enters the right Imbox/Screener state, and behaves as a body-safe sense.
 - [ ] Ari's delegated HEY source is backfilled from MBOX with provenance/freshness and receives all future forwarded mail at `me.mendelow.ari.slugger@ouro.bot` with owner/source labels everywhere.
@@ -68,19 +68,19 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Acceptance**: Baseline proves no user changes were overwritten, names the active remotes/branches, and confirms which human inputs are genuinely missing before implementation begins.
 
 ### ⬜ Unit 0a: Harness Vault Item Surface — Tests
-**What**: Write failing harness tests and doc contracts for a generic human-facing vault item surface: hidden secret entry, username/account label, freeform notes, list/status without secret exposure, reserved runtime/config guidance, and provider helper compatibility.
+**What**: Write failing harness tests and doc contracts for a generic human-facing vault item/credential surface: stable item name/path, hidden secret entry, optional public fields, freeform editable notes, tags/folder-ish organization, timestamps/provenance, list/status without secret exposure, reserved runtime/config guidance, templates as convenience only, and provider helper compatibility.
 **Output**: Red CLI/docs tests in the harness worktree.
-**Acceptance**: Tests fail where the only human CLI path for an arbitrary credential is provider-specific or where docs imply ops credentials are a separate ontology.
+**Acceptance**: Tests fail where the only human CLI path for an arbitrary credential is provider-specific or where docs imply ops credentials, authorities, DNS credentials, or provider credentials are separate ontologies for freeform vault items.
 
 ### ⬜ Unit 0b: Harness Vault Item Surface — Implementation
-**What**: Implement or expose generic `ouro vault item` commands over the existing agent-vault item primitive, with clear item naming, notes, hidden secret prompts, metadata-only status/list, and guardrails around reserved harness-managed items. Keep `vault ops porkbun` as a compatibility/template helper that stores an ordinary vault item and points users toward the generic model.
+**What**: Implement or expose generic `ouro vault item` or `ouro vault credential` commands over the existing agent-vault item primitive, with clear item naming, notes, hidden secret prompts, metadata-only status/list, and guardrails around reserved harness-managed items. Templates such as `--template porkbun-api` only shape prompts/fields. Keep `vault ops porkbun` as a deprecated compatibility alias that stores an ordinary vault item and points users toward the generic model.
 **Output**: Harness CLI/code/docs changes, compatibility behavior, and task notes.
-**Acceptance**: A human can store/check a non-runtime credential for Slugger without a provider-specific command; the existing Porkbun credential remains usable as a normal vault item referenced by workflow binding.
+**Acceptance**: A human can store/check a non-runtime credential for Slugger without a provider-specific command; the existing Porkbun-related item remains usable as a normal vault item that a DNS workflow binding may reference.
 
 ### ⬜ Unit 0c: Harness Vault Item Surface — Coverage And Release
 **What**: Cover error paths, noninteractive failures, reserved item collisions, no-secret logging, notes handling, and command-help ergonomics; run harness tests/release preflight, merge/release/install as needed.
 **Output**: Coverage artifacts, PR/release evidence, and updated local installed `ouro`.
-**Acceptance**: 100% coverage on new vault-surface code and future agents see vault item first in help/docs before provider templates.
+**Acceptance**: 100% coverage on new vault-surface code and future agents see "vault item / credential with no assumed use" first in help/docs before templates or compatibility aliases.
 
 ### ⬜ Unit 1a: Two-Lane Mail Contract — Tests
 **What**: Write failing tests/contract checks that native agent mail and delegated human mailbox source cannot collapse across protocol, harness types, tools, Outlook labels, prompt/sense summaries, and recovery records.
@@ -113,19 +113,19 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Acceptance**: Error paths are tested and recovery copy names agent-runnable versus human-required work.
 
 ### ⬜ Unit 3a: DNS And Certificate Automation — Tests
-**What**: Write failing tests for generic DNS credential resolution, provider-driver binding, Porkbun read-only ping/retrieve as the current `ouro.bot` driver, DNS backup, dry-run diff, apply, verify, rollback, and ACME/certificate material handling without logging secrets.
+**What**: Write failing tests for DNS workflow binding resolution: domain, driver, explicit vault item path, resource allowlist, no note parsing, Porkbun read-only ping/retrieve as the current `ouro.bot` driver, DNS backup, dry-run diff, apply, verify, rollback, and ACME/certificate material handling without logging secrets.
 **Output**: Red tests and fixture DNS records.
-**Acceptance**: Tests fail until automation can prove safe DNS mutation behavior without treating a provider template as the core credential model.
+**Acceptance**: Tests fail until automation can prove safe DNS mutation behavior without treating the referenced vault item as a DNS credential, ops credential, authority, or provider-shaped credential.
 
 ### ⬜ Unit 3b: DNS And Certificate Automation — Implementation
-**What**: Implement DNS automation and certificate flow for `mx1.ouro.bot` as a provider-driver workflow. Bind `ouro.bot` to the appropriate agent-vault credential item and Porkbun driver for the current deployment, store no raw secrets outside approved secret paths, and preserve unrelated verification records.
+**What**: Implement DNS automation and certificate flow for `mx1.ouro.bot` as a workflow binding plus provider driver. The binding names `domain`, `driver`, `credentialItem`, and resource allowlist. The driver reads only the required secret fields from the referenced vault item. Store no raw secrets outside approved secret paths, do not parse notes, and preserve unrelated verification records.
 **Output**: Scripts/CLI/workflow, binding docs, driver docs, and secret hygiene checks.
-**Acceptance**: With the configured DNS provider credential item, automation can retrieve current records and produce a safe dry-run; apply/rollback are available for cutover.
+**Acceptance**: With the configured workflow binding, automation can retrieve current records and produce a safe dry-run; apply/rollback are available for cutover.
 
 ### ⬜ Unit 3c: DNS And Certificate Automation — Coverage And Refactor
-**What**: Verify no secrets in logs/process artifacts, cover credential-item lookup failures, provider API failures, rate limits, propagation pending, and document future-session access using the generic vault-item plus workflow-binding model.
+**What**: Verify no secrets in logs/process artifacts, cover vault item lookup failures, missing required secret fields, provider API failures, rate limits, propagation pending, and document future-session access using the generic vault-item plus workflow-binding model.
 **Output**: Coverage artifacts and operations docs.
-**Acceptance**: 100% coverage on new DNS/cert automation and a successful read-only DNS provider credential check for the current `ouro.bot` binding.
+**Acceptance**: 100% coverage on new DNS/cert automation and a successful read-only workflow-binding check for the current `ouro.bot` binding.
 
 ### ⬜ Unit 4a: Production SMTP Edge — Tests
 **What**: Write failing tests for STARTTLS advertisement/certificate config, max size, recipient limits, connection/rate limits, transient storage failures, unknown recipient rejection, and body-safe logs.
@@ -215,7 +215,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 ## Execution
 - Work in dedicated worktrees and branches for every repo touched.
 - Human approval gates for planning/doing/process are waived for this task; proceed directly unless a genuine external input is required.
-- Stop only for genuine human inputs: DNS/provider credentials through hidden prompt or approved secret store, Slugger vault unlock/secret entry, HEY browser/MFA/export/forwarding, provider verification that cannot be automated, and live mail sent from human-controlled accounts.
+- Stop only for genuine human inputs: missing secret material through hidden prompt or approved secret store, Slugger vault unlock/secret entry, HEY browser/MFA/export/forwarding, provider verification that cannot be automated, and live mail sent from human-controlled accounts.
 - **TDD strictly enforced**: tests → red → implement → green → refactor
 - Commit after each phase or logical unit.
 - Push after each unit complete.
@@ -229,3 +229,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-22 14:36 Started Unit 0 baseline and worktree setup.
 - 2026-04-22 17:25 Captured post-compaction credential-orientation correction: generic vault item first, workflow binding second, provider template last.
 - 2026-04-22 17:36 Promoted the generic harness vault item surface from documentation debt into first-order Units 0a-0c before DNS/mail implementation.
+- 2026-04-22 17:45 Rewrote credential orientation to the stricter primitive: vault item/credential with no assumed use; workflows bind to items outside the item; notes are never machine contracts.
