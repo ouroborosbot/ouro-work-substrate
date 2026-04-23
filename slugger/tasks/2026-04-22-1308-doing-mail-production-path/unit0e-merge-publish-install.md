@@ -57,4 +57,5 @@ Harness `.github/workflows/coverage.yml` is the release lane:
 ## Notes
 
 - The first `gh pr create` attempt failed because `--head slugger/vault-item-surface` was parsed as an `owner:branch` pair. Retried successfully with `--head ouroborosbot:slugger/vault-item-surface`.
+- Before merge, local `ouro -v`, `npx ouro.bot@latest -v`, `@ouro.bot/cli@latest`, and `ouro.bot@latest` all reported `0.1.0-alpha.465`; `0.1.0-alpha.466` was not published yet. This is expected until the `main` publish job completes.
 - Do not treat this unit as done until the installed runtime, not just the branch, has the surface.
