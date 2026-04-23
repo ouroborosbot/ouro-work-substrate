@@ -191,7 +191,7 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 **Output**: Red provider adapter and hosted event tests.
 **Acceptance**: Tests fail until provider acceptance and final delivery outcomes are separated.
 
-### ⬜ Unit 7b: Outbound Provider And Events — Implementation
+### ✅ Unit 7b: Outbound Provider And Events — Implementation
 **What**: Implement authenticated outbound provider submission, domain-auth DNS records, event endpoint/subscription, event reconciliation, and audited sent-copy storage.
 **Output**: Provider adapter, hosted callback/event code, DNS records, docs, and deploy changes.
 **Acceptance**: Confirmed and autonomous native sends produce provider ids and later delivery/bounce/event updates.
@@ -275,3 +275,4 @@ Legend: ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 - 2026-04-23 00:50 Unit 6b complete: implemented shared native-mail autonomy policy/evaluator contracts, harness autonomous send enforcement and audit fields, runtime config parsing, guarded `mail_send` behavior, and outbound docs. Evidence lives in `unit6b-implementation.md`.
 - 2026-04-23 01:10 Unit 6c complete: closed native autonomy coverage/refactor in substrate and harness at 100%, passed substrate `ci:local`, harness full coverage/Nerves audit, and recorded the Unit 6 versus Unit 7 provider-event boundary. Evidence lives in `unit6c-coverage-refactor.md`.
 - 2026-04-23 01:14 Unit 7a complete: added red substrate/harness tests for outbound provider submission, provider message ids, ACS Event Grid delivery reports, hosted webhook validation, body-safe delivery event sink payloads, and idempotent reconciliation. Evidence lives in `unit7a-red-tests.md`.
+- 2026-04-23 01:31 Unit 7b complete: implemented shared outbound provider states/events, Mail Control ACS Event Grid webhook handling, harness ACS HMAC provider client, explicit vault-item credential binding fields, Outlook/tool status visibility, and docs for the harness/package versus hosted/deploy lanes. Evidence lives in `unit7b-implementation.md`.
