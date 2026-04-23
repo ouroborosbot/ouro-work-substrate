@@ -73,6 +73,8 @@ Nonstandard exposed SMTP ports are diagnostic-only and must not back an MX recor
 
 Outbound native-agent mail uses Azure Communication Services Email. The Bicep deploy owns the Email Communication Service, the CustomerManaged `ouro.bot` email domain, the Communication Services resource, and an Event Grid subscription for `Microsoft.Communication.EmailDeliveryReportReceived` events. The domain starts unlinked until the DNS verification records are applied and verified; only then set `outboundEmailLinkVerifiedDomain=true` for the deploy that links the custom domain to the Communication Services resource.
 
+The deploy workflow registers `Microsoft.Communication` and `Microsoft.EventGrid` before applying the Bicep template, then verifies both providers are `Registered`. If provider registration fails, fix subscription permissions or register the provider from an account with subscription-level rights and rerun the workflow.
+
 The ACS access key is not a harness-managed `ouro connect` credential. Store it as an ordinary Slugger vault item, then reference that item from `mailroom.outbound` in runtime config:
 
 ```json

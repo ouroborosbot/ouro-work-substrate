@@ -25,8 +25,14 @@ describe("Deploy Azure workflow production SMTP port contract", () => {
   })
 
   it("keeps outbound ACS email resources and Event Grid delivery reports in the deployable Azure shape", () => {
+    const workflow = readFile(".github/workflows/deploy-azure.yml")
     const bicep = readFile("infra/azure/main.bicep")
     const operations = readFile("docs/operations.md")
+
+    expect(workflow).toContain("az provider register --namespace Microsoft.Communication")
+    expect(workflow).toContain("az provider register --namespace Microsoft.EventGrid")
+    expect(workflow).toContain("az provider show --namespace Microsoft.Communication")
+    expect(workflow).toContain("az provider show --namespace Microsoft.EventGrid")
 
     expect(bicep).toContain("Microsoft.Communication/emailServices@2026-03-18")
     expect(bicep).toContain("Microsoft.Communication/emailServices/domains@2026-03-18")
@@ -42,5 +48,6 @@ describe("Deploy Azure workflow production SMTP port contract", () => {
     expect(operations).toContain("ordinary Slugger vault item")
     expect(operations).toContain("code must read only the explicit `credentialItem` and `credentialFields` binding")
     expect(operations).toContain("outbound-events/unmatched/")
+    expect(operations).toContain("The deploy workflow registers `Microsoft.Communication` and `Microsoft.EventGrid`")
   })
 })

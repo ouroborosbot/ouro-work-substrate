@@ -124,6 +124,30 @@ jobs:
             echo "$reason"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Ensure Azure resource providers
+        if: steps.deploy_decision.outputs.should_deploy == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          az provider register --namespace Microsoft.Communication --wait
+          az provider register --namespace Microsoft.EventGrid --wait
+          communication_state="$(az provider show --namespace Microsoft.Communication --query registrationState -o tsv)"
+          event_grid_state="$(az provider show --namespace Microsoft.EventGrid --query registrationState -o tsv)"
+          if [[ "$communication_state" != "Registered" ]]; then
+            echo "Microsoft.Communication provider registration state is $communication_state, expected Registered." >&2
+            exit 1
+          fi
+          if [[ "$event_grid_state" != "Registered" ]]; then
+            echo "Microsoft.EventGrid provider registration state is $event_grid_state, expected Registered." >&2
+            exit 1
+          fi
+          {
+            echo "### Azure resource providers"
+            echo
+            echo "- Microsoft.Communication: \`$communication_state\`"
+            echo "- Microsoft.EventGrid: \`$event_grid_state\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Ensure resource group and registry
         if: steps.deploy_decision.outputs.should_deploy == 'true'
         id: registry
