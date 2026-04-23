@@ -23,4 +23,24 @@ describe("Deploy Azure workflow production SMTP port contract", () => {
     expect(operations).toContain("Required for production MX: `AZURE_MAIL_EXPOSED_SMTP_PORT=25`")
     expect(operations).toContain("Nonstandard exposed SMTP ports are diagnostic-only and must not back an MX record.")
   })
+
+  it("keeps outbound ACS email resources and Event Grid delivery reports in the deployable Azure shape", () => {
+    const bicep = readFile("infra/azure/main.bicep")
+    const operations = readFile("docs/operations.md")
+
+    expect(bicep).toContain("Microsoft.Communication/emailServices@2026-03-18")
+    expect(bicep).toContain("Microsoft.Communication/emailServices/domains@2026-03-18")
+    expect(bicep).toContain("Microsoft.Communication/communicationServices@2024-09-01-preview")
+    expect(bicep).toContain("outboundEmailLinkVerifiedDomain bool = false")
+    expect(bicep).toContain("Microsoft.EventGrid/eventSubscriptions@2025-02-15")
+    expect(bicep).toContain("Microsoft.Communication.EmailDeliveryReportReceived")
+    expect(bicep).toContain("/v1/outbound/events/azure-communication-services")
+    expect(bicep).toContain("outboundEmailDomainVerificationRecords")
+    expect(bicep).toContain("outboundDeliveryEventSubscriptionName")
+
+    expect(operations).toContain("Outbound native-agent mail uses Azure Communication Services Email")
+    expect(operations).toContain("ordinary Slugger vault item")
+    expect(operations).toContain("code must read only the explicit `credentialItem` and `credentialFields` binding")
+    expect(operations).toContain("outbound-events/unmatched/")
+  })
 })

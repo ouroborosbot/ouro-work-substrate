@@ -3,14 +3,19 @@ import { DefaultAzureCredential } from "@azure/identity"
 import { parseMailControlArgs } from "./args"
 import { AzureBlobMailRegistryStore, FileMailRegistryStore, type MailRegistryStore } from "./store"
 import { startMailControlServer } from "./server"
+import { AzureBlobOutboundEventSink } from "./outbound-events"
 
-function createStore(parsed: ReturnType<typeof parseMailControlArgs>): MailRegistryStore {
+function createBlobServiceClient(parsed: ReturnType<typeof parseMailControlArgs>): BlobServiceClient {
+  const credential = parsed.azureManagedIdentityClientId
+    ? new DefaultAzureCredential({ managedIdentityClientId: parsed.azureManagedIdentityClientId })
+    : new DefaultAzureCredential()
+  return new BlobServiceClient(parsed.azureAccountUrl!, credential)
+}
+
+function createStore(parsed: ReturnType<typeof parseMailControlArgs>, blobServiceClient?: BlobServiceClient): MailRegistryStore {
   if (parsed.azureAccountUrl) {
-    const credential = parsed.azureManagedIdentityClientId
-      ? new DefaultAzureCredential({ managedIdentityClientId: parsed.azureManagedIdentityClientId })
-      : new DefaultAzureCredential()
     return new AzureBlobMailRegistryStore(
-      new BlobServiceClient(parsed.azureAccountUrl, credential),
+      blobServiceClient ?? createBlobServiceClient(parsed),
       parsed.registryContainer,
       parsed.registryBlob,
       parsed.registryDomain,
@@ -21,8 +26,9 @@ function createStore(parsed: ReturnType<typeof parseMailControlArgs>): MailRegis
 
 export function runMailControl(args: string[] = process.argv.slice(2)): ReturnType<typeof startMailControlServer> {
   const parsed = parseMailControlArgs(args)
+  const blobServiceClient = parsed.azureAccountUrl ? createBlobServiceClient(parsed) : undefined
   return startMailControlServer({
-    store: createStore(parsed),
+    store: createStore(parsed, blobServiceClient),
     ...(parsed.adminToken ? { adminToken: parsed.adminToken } : {}),
     ...(parsed.adminTokenFile ? { adminTokenFile: parsed.adminTokenFile } : {}),
     allowedEmailDomain: parsed.allowedEmailDomain,
@@ -40,6 +46,7 @@ export function runMailControl(args: string[] = process.argv.slice(2)): ReturnTy
             azureAccountUrl: parsed.azureAccountUrl,
             container: parsed.registryContainer,
           },
+          outboundEvents: new AzureBlobOutboundEventSink(blobServiceClient!, parsed.registryContainer),
         }
       : {}),
     rateLimitWindowMs: parsed.rateLimitWindowMs,
