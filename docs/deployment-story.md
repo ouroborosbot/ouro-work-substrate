@@ -70,6 +70,8 @@ Phase 5 is the real mail-delivery proof: native provider delivery to `slugger@ou
 
 Status: gated on live provider-level smoke, not a separate approval ceremony. The current deploy lane keeps hosted services as private commit-addressed Docker images built by GitHub Actions and applied through Bicep; these services are not published as npm packages.
 
+Outbound provider implementation now has a protocol and hosted callback lane: provider submission records `submitted` with provider ids, and Event Grid delivery reports can reconcile later delivered/bounced/suppressed/quarantined/spam-filtered/failed outcomes without treating API acceptance as final delivery. The harness release lane remains npm packaging and install verification; the hosted service lane remains CI-tested Azure deployment. Live ACS domain authentication, DNS records, webhook subscription, and end-to-end outbound smoke are still Phase 5 proof work.
+
 ## Branch Protection
 
 `main` should require the CI `test` status check before merge. Admins may still need emergency bypass while this repo is young, but normal work should flow through PRs.

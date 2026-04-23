@@ -1,6 +1,6 @@
 import * as http from "node:http"
 import * as fs from "node:fs"
-import { normalizeMailAddress } from "@ouro/work-protocol"
+import { normalizeMailAddress, parseAcsEmailDeliveryReportEvent, type MailOutboundDeliveryEvent } from "@ouro/work-protocol"
 import type { MailRegistryStore } from "./store"
 import { logEvent } from "./log"
 
@@ -28,6 +28,9 @@ export interface MailControlOptions {
   rateLimitWindowMs?: number
   rateLimitMax?: number
   allowUnauthenticatedLocal?: boolean
+  outboundEvents?: {
+    recordDeliveryEvent(event: MailOutboundDeliveryEvent): Promise<unknown> | unknown
+  }
 }
 
 interface Bucket {
@@ -129,6 +132,45 @@ function publicRegistryResponse(options: MailControlOptions, revision: string): 
   return options.publicRegistry ? { ...options.publicRegistry, revision } : undefined
 }
 
+function isEventGridValidation(payload: unknown): payload is Array<{ data?: { validationCode?: string } }> {
+  return Array.isArray(payload) &&
+    payload.some((event) =>
+      event &&
+      typeof event === "object" &&
+      (event as { eventType?: unknown }).eventType === "Microsoft.EventGrid.SubscriptionValidationEvent" &&
+      typeof (event as { data?: { validationCode?: unknown } }).data?.validationCode === "string")
+}
+
+async function handleOutboundEvents(request: http.IncomingMessage, response: http.ServerResponse, options: MailControlOptions): Promise<void> {
+  const body = JSON.parse(await readBody(request)) as unknown
+  if (isEventGridValidation(body) || request.headers["aeg-event-type"] === "SubscriptionValidation") {
+    const validationCode = Array.isArray(body)
+      ? body.map((event) => event.data?.validationCode).find((code): code is string => typeof code === "string")
+      : undefined
+    if (!validationCode) throw new Error("Event Grid validation request is missing validationCode")
+    json(response, 200, { validationResponse: validationCode })
+    return
+  }
+  if (!options.outboundEvents) {
+    json(response, 503, { ok: false, error: "outbound event sink is not configured" })
+    return
+  }
+  if (!Array.isArray(body)) throw new Error("Event Grid notification body must be an array")
+  const events = body
+    .filter((event) => (event as { eventType?: unknown }).eventType === "Microsoft.Communication.EmailDeliveryReportReceived")
+    .map(parseAcsEmailDeliveryReportEvent)
+  for (const event of events) {
+    await options.outboundEvents.recordDeliveryEvent(event)
+  }
+  logEvent({
+    component: "mail-control",
+    event: "outbound_delivery_events_received",
+    message: "outbound delivery events received",
+    meta: { provider: "azure-communication-services", count: events.length },
+  })
+  json(response, 202, { ok: true, accepted: events.length })
+}
+
 export function createMailControlServer(options: MailControlOptions): http.Server {
   const buckets = new Map<string, Bucket>()
   return http.createServer(async (request, response) => {
@@ -143,6 +185,10 @@ export function createMailControlServer(options: MailControlOptions): http.Serve
           sourceGrants: registry.sourceGrants.length,
           revision,
         })
+        return
+      }
+      if (request.method === "POST" && request.url === "/v1/outbound/events/azure-communication-services") {
+        await handleOutboundEvents(request, response, options)
         return
       }
       if (request.method !== "POST" || request.url !== "/v1/mailboxes/ensure") {
