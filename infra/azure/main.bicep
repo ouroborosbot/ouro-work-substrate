@@ -18,6 +18,16 @@ param mailControlImage string
 @description('Container image for apps/vault-control.')
 param vaultControlImage string
 
+@description('Container image for apps/trip-control.')
+param tripControlImage string
+
+@description('Bearer token for trip-control.')
+@secure()
+param tripControlAdminToken string
+
+@description('Trip ledger storage container name.')
+param tripContainerName string = 'trips'
+
 @description('Vaultwarden/Bitwarden server URL used by vault-control.')
 param vaultServerUrl string = 'https://vault.ouroboros.bot'
 
@@ -217,6 +227,13 @@ resource outboundCommunicationService 'Microsoft.Communication/communicationServ
 
 resource mailContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
   name: '${storage.name}/default/${mailContainerName}'
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
+resource tripContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  name: '${storage.name}/default/${tripContainerName}'
   properties: {
     publicAccess: 'None'
   }
@@ -654,6 +671,110 @@ resource vaultControl 'Microsoft.App/containerApps@2024-03-01' = {
   ]
 }
 
+resource tripControl 'Microsoft.App/containerApps@2024-03-01' = {
+  name: '${prefix}-trip-control'
+  location: location
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${identity.id}': {}
+    }
+  }
+  properties: {
+    environmentId: environment.id
+    workloadProfileName: 'Consumption'
+    configuration: {
+      activeRevisionsMode: 'Single'
+      registries: [
+        {
+          server: registry.properties.loginServer
+          identity: identity.id
+        }
+      ]
+      secrets: [
+        {
+          name: 'trip-control-admin-token'
+          value: tripControlAdminToken
+        }
+      ]
+      ingress: {
+        external: true
+        transport: 'http'
+        targetPort: 8080
+        allowInsecure: false
+        traffic: [
+          {
+            latestRevision: true
+            weight: 100
+          }
+        ]
+      }
+    }
+    template: {
+      containers: [
+        {
+          name: 'trip-control'
+          image: tripControlImage
+          args: [
+            '--azure-account-url'
+            'https://${storage.name}.blob.${az.environment().suffixes.storage}'
+            '--azure-managed-identity-client-id'
+            identity.properties.clientId
+            '--registry-container'
+            tripContainerName
+            '--admin-token-file'
+            '/mnt/secrets/trip-control-admin-token'
+            '--port'
+            '8080'
+          ]
+          resources: {
+            cpu: json('0.25')
+            memory: '0.5Gi'
+          }
+          volumeMounts: [
+            {
+              volumeName: 'control-secrets'
+              mountPath: '/mnt/secrets'
+            }
+          ]
+          probes: [
+            {
+              type: 'Readiness'
+              httpGet: {
+                path: '/health'
+                port: 8080
+              }
+              initialDelaySeconds: 5
+              periodSeconds: 15
+            }
+          ]
+        }
+      ]
+      scale: {
+        minReplicas: 1
+        maxReplicas: 2
+      }
+      volumes: [
+        {
+          name: 'control-secrets'
+          storageType: 'Secret'
+          secrets: [
+            {
+              secretRef: 'trip-control-admin-token'
+              path: 'trip-control-admin-token'
+            }
+          ]
+        }
+      ]
+    }
+  }
+  dependsOn: [
+    acrPullAccess
+    mailBlobAccess
+    tripContainer
+  ]
+}
+
 output containerRegistryName string = registry.name
 output containerRegistryLoginServer string = registry.properties.loginServer
 output mailIngressFqdn string = mailIngress.properties.configuration.ingress.fqdn
@@ -661,6 +782,7 @@ output mailSmtpPort int = mailExposedSmtpPort
 output mailStorageAccountUrl string = 'https://${storage.name}.blob.${az.environment().suffixes.storage}'
 output mailControlFqdn string = mailControl.properties.configuration.ingress.fqdn
 output vaultControlFqdn string = vaultControl.properties.configuration.ingress.fqdn
+output tripControlFqdn string = tripControl.properties.configuration.ingress.fqdn
 output outboundAcsEndpoint string = 'https://${outboundCommunicationService.name}.communication.azure.com'
 output outboundCommunicationServiceName string = outboundCommunicationService.name
 output outboundEmailServiceName string = outboundEmailService.name
