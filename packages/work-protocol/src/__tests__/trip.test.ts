@@ -39,6 +39,7 @@ function tripRecord(overrides: Partial<TripRecord> = {}): TripRecord {
           messageId: "mail_booking_basel",
           reason: "booking confirmation",
           recordedAt: "2026-04-01T08:00:00.000Z",
+          discoveryMethod: "extracted",
           excerpt: "Confirmation: BSL47291",
         }],
         createdAt: "2026-04-01T08:00:00.000Z",
@@ -77,6 +78,68 @@ describe("encryptTripRecord / decryptTripRecord", () => {
     expect(payload.keyId).toBe(keypair.keyId)
     const decrypted = decryptTripRecord(payload, keypair.privateKeyPem)
     expect(decrypted).toEqual(original)
+  })
+
+  it("round-trips a TripRecord that mixes leg kinds and evidence discovery methods", () => {
+    const keypair = generateTripKeyPair("slugger")
+    const original = tripRecord({
+      legs: [
+        {
+          legId: "leg_rental-car_0000000000000000",
+          kind: "rental-car",
+          status: "confirmed",
+          rentalVendor: "Sixt",
+          confirmationCode: "XCDR/123456789",
+          pickupLocation: "Basel SBB",
+          dropoffLocation: "Zurich Airport",
+          pickupAt: "2026-08-05T10:00:00+02:00",
+          dropoffAt: "2026-08-08T18:00:00+02:00",
+          amount: { value: 320, currency: "EUR" },
+          evidence: [{
+            messageId: "mail_sixt_confirm",
+            reason: "rental car confirmation",
+            recordedAt: "2026-04-02T08:00:00.000Z",
+            discoveryMethod: "extracted",
+          }],
+          createdAt: "2026-04-02T08:00:00.000Z",
+          updatedAt: "2026-04-02T08:00:00.000Z",
+        },
+        {
+          legId: "leg_lodging_0000000000000001",
+          kind: "lodging",
+          status: "tentative",
+          city: "Zurich",
+          checkInDate: "2026-08-08",
+          checkOutDate: "2026-08-09",
+          evidence: [{
+            messageId: "mail_flight_change",
+            reason: "Zurich overnight inferred from flight schedule shift",
+            recordedAt: "2026-04-03T08:00:00.000Z",
+            discoveryMethod: "inferred",
+          }, {
+            messageId: "operator-direct-2026-04-03",
+            reason: "Ari confirmed during chat that he plans to overnight in Zurich",
+            recordedAt: "2026-04-03T09:00:00.000Z",
+            discoveryMethod: "operator_supplied",
+          }],
+          createdAt: "2026-04-03T08:00:00.000Z",
+          updatedAt: "2026-04-03T09:00:00.000Z",
+        },
+      ],
+    })
+    const payload = encryptTripRecord(original, keypair.publicKeyPem, keypair.keyId)
+    const decrypted = decryptTripRecord(payload, keypair.privateKeyPem)
+    expect(decrypted).toEqual(original)
+    // The rental-car kind survives the round trip and remains narrowable.
+    const rental = decrypted.legs.find((leg) => leg.kind === "rental-car")
+    expect(rental?.kind).toBe("rental-car")
+    if (rental?.kind === "rental-car") {
+      expect(rental.rentalVendor).toBe("Sixt")
+      expect(rental.pickupLocation).toBe("Basel SBB")
+    }
+    // Evidence discovery methods are preserved.
+    const lodging = decrypted.legs.find((leg) => leg.kind === "lodging")
+    expect(lodging?.evidence.map((e) => e.discoveryMethod)).toEqual(["inferred", "operator_supplied"])
   })
 })
 
@@ -139,6 +202,16 @@ describe("newLegId", () => {
       createdAt: "2026-04-01T08:00:00.000Z",
     })
     expect(id.startsWith("leg_ferry_")).toBe(true)
+  })
+
+  it("encodes the rental-car kind in the id prefix", () => {
+    const id = newLegId({
+      tripId: "trip_test_0000000000000000",
+      kind: "rental-car",
+      vendor: "Sixt",
+      createdAt: "2026-04-01T08:00:00.000Z",
+    })
+    expect(id.startsWith("leg_rental-car_")).toBe(true)
   })
 })
 

@@ -32,8 +32,14 @@ export type TripStatus = "planned" | "confirmed" | "in-progress" | "completed" |
  * The narrow set of leg shapes a real trip ledger needs. We start with the
  * shapes Slugger explicitly named; new variants are additive (new union arm,
  * new helper). A more general "event" arm catches anything not covered yet.
+ *
+ * RentalCar is intentionally its own kind — confirmation tokens are a distinct
+ * shape (often vendor-prefixed like "XCDR/123456789"), pickup/dropoff locations
+ * are not the same as the trip destination, and the vendor (Hertz / Sixt /
+ * Enterprise) is material to the plan. Folding it into ground-transport loses
+ * signal the agent needs when reasoning about the leg.
  */
-export type LegKind = "lodging" | "flight" | "train" | "ground-transport" | "ferry" | "event"
+export type LegKind = "lodging" | "flight" | "train" | "ground-transport" | "rental-car" | "ferry" | "event"
 
 /**
  * Per-leg status. Distinct from TripStatus because a single trip can hold a
@@ -56,14 +62,32 @@ export interface TripMoney {
 }
 
 /**
- * A single piece of evidence — usually a mail message — that contributed
- * to a fact on a leg. Provenance is non-optional so the agent can always
- * cite which message a fact came from when updating the rendered doc.
+ * How a piece of evidence came to be attached to a leg.
+ *   - `extracted`         — pulled directly from a primary source (a booking
+ *                           confirmation mail, an itinerary doc). Highest trust.
+ *   - `inferred`          — derived by reasoning over other facts (e.g. "check-in
+ *                           is the day after the flight because no explicit
+ *                           check-in date was in the mail"). Useful but should
+ *                           not silently overwrite an extracted fact in conflict.
+ *   - `operator_supplied` — the human told the agent directly. Treated as truth
+ *                           but distinct in the audit trail from a mail-grounded
+ *                           extraction.
+ *
+ * Required so every fact on the ledger is honest about its provenance class.
+ */
+export type EvidenceDiscoveryMethod = "extracted" | "inferred" | "operator_supplied"
+
+/**
+ * A single piece of evidence that contributed to a fact on a leg. Provenance
+ * is non-optional so the agent can always cite which message a fact came from
+ * (or that the fact was inferred / operator-supplied) when updating the
+ * rendered doc or when reasoning about a contradiction.
  */
 export interface TripEvidence {
   messageId: string
   reason: string
   recordedAt: string
+  discoveryMethod: EvidenceDiscoveryMethod
   excerpt?: string
 }
 
@@ -115,6 +139,15 @@ export interface GroundTransportLeg extends TripLegBase {
   operator?: string
 }
 
+export interface RentalCarLeg extends TripLegBase {
+  kind: "rental-car"
+  rentalVendor?: string
+  pickupLocation?: string
+  dropoffLocation?: string
+  pickupAt?: string
+  dropoffAt?: string
+}
+
 export interface FerryLeg extends TripLegBase {
   kind: "ferry"
   originPort?: string
@@ -132,7 +165,7 @@ export interface EventLeg extends TripLegBase {
   endsAt?: string
 }
 
-export type TripLeg = LodgingLeg | FlightLeg | TrainLeg | GroundTransportLeg | FerryLeg | EventLeg
+export type TripLeg = LodgingLeg | FlightLeg | TrainLeg | GroundTransportLeg | RentalCarLeg | FerryLeg | EventLeg
 
 // ── Trip + registry records ────────────────────────────────────────
 
