@@ -59,4 +59,30 @@ describe("parseTripControlArgs", () => {
   it("rejects negative integer flag values", () => {
     expect(() => parseTripControlArgs(["--store", "/tmp/x", "--admin-token", "s", "--rate-limit-max", "-1"])).toThrow(/--rate-limit-max/)
   })
+
+  it("parses Azure-only configuration (no --store) with optional --azure-managed-identity-client-id and --registry-container", () => {
+    const parsed = parseTripControlArgs([
+      "--azure-account-url", "https://acct.blob.core.windows.net",
+      "--azure-managed-identity-client-id", "00000000-0000-0000-0000-000000000000",
+      "--registry-container", "tripsv1",
+      "--admin-token", "s",
+    ])
+    expect(parsed.storePath).toBeUndefined()
+    expect(parsed.azureAccountUrl).toBe("https://acct.blob.core.windows.net")
+    expect(parsed.azureManagedIdentityClientId).toBe("00000000-0000-0000-0000-000000000000")
+    expect(parsed.registryContainer).toBe("tripsv1")
+  })
+
+  it("falls back to the default registry container when --registry-container is not provided", () => {
+    const parsed = parseTripControlArgs([
+      "--azure-account-url", "https://acct.blob.core.windows.net",
+      "--admin-token", "s",
+    ])
+    expect(parsed.registryContainer).toBe("trips")
+    expect(parsed.azureManagedIdentityClientId).toBeUndefined()
+  })
+
+  it("rejects when neither --store nor --azure-account-url is provided", () => {
+    expect(() => parseTripControlArgs(["--admin-token", "s"])).toThrow(/--store|--azure-account-url/)
+  })
 })

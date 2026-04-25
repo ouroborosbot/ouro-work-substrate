@@ -3,7 +3,10 @@
 // contract (env vars are short-lived; flags are auditable in the deploy spec).
 
 export interface TripControlArgs {
-  storePath: string
+  storePath?: string
+  azureAccountUrl?: string
+  azureManagedIdentityClientId?: string
+  registryContainer: string
   adminToken?: string
   adminTokenFile?: string
   host: string
@@ -18,6 +21,7 @@ const DEFAULTS = {
   port: 8080,
   rateLimitWindowMs: 60_000,
   rateLimitMax: 60,
+  registryContainer: "trips",
 }
 
 function readFlag(args: string[], name: string): string | undefined {
@@ -41,8 +45,10 @@ function parseIntegerFlag(value: string | undefined, fallback: number, name: str
 
 export function parseTripControlArgs(args: string[] = process.argv.slice(2)): TripControlArgs {
   const storePath = readFlag(args, "--store")
-  if (!storePath) {
-    throw new Error("--store <path> is required (file-backed trip ledger root directory)")
+  const azureAccountUrl = readFlag(args, "--azure-account-url")
+  const azureManagedIdentityClientId = readFlag(args, "--azure-managed-identity-client-id")
+  if (!storePath && !azureAccountUrl) {
+    throw new Error("either --store <path> (local file-backed) or --azure-account-url <url> (Azure-blob backed) is required")
   }
   const adminToken = readFlag(args, "--admin-token")
   const adminTokenFile = readFlag(args, "--admin-token-file")
@@ -52,7 +58,10 @@ export function parseTripControlArgs(args: string[] = process.argv.slice(2)): Tr
   }
 
   return {
-    storePath,
+    ...(storePath ? { storePath } : {}),
+    ...(azureAccountUrl ? { azureAccountUrl } : {}),
+    ...(azureManagedIdentityClientId ? { azureManagedIdentityClientId } : {}),
+    registryContainer: readFlag(args, "--registry-container") ?? DEFAULTS.registryContainer,
     ...(adminToken ? { adminToken } : {}),
     ...(adminTokenFile ? { adminTokenFile } : {}),
     host: readFlag(args, "--host") ?? DEFAULTS.host,

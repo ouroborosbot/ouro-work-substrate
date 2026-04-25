@@ -77,6 +77,7 @@ function readBody(request: http.IncomingMessage, maxBytes = 1024 * 1024): Promis
       if (!tooLarge) reject(error)
     })
     request.on("end", () => {
+      /* v8 ignore next -- the tooLarge path resolves+drains earlier; the end event after rejection is a no-op. */
       if (!tooLarge) resolve(Buffer.concat(chunks).toString("utf-8"))
     })
   })
