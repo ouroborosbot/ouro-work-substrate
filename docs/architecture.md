@@ -15,7 +15,7 @@ flowchart LR
   Human["Human at keyboard"] --> CLI["Ouro CLI and setup guide"]
   Agent["Ouroboros agent runtime"] --> Sense["Mail sense and bounded tools"]
   Agent --> Vault["Agent vault"]
-  Agent --> Outlook["Ouro Outlook"]
+  Agent --> Mailbox["Ouro Mailbox"]
   CLI --> MailControl["apps/mail-control"]
   CLI --> VaultControl["apps/vault-control"]
   MailControl --> Registry["Public mail registry in Blob"]

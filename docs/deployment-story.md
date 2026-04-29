@@ -7,7 +7,7 @@ This doc is the memory of how the deploy story changed. Keep it honest. A future
 ## Current State
 
 - Hosted service code lives here: shared protocol, Mail Ingress, Mail Control, Vault Control, Dockerfiles, and Azure infra.
-- The Ouroboros harness still owns local setup commands, the Mail sense, bounded mail tools, local development stores, and Ouro Outlook.
+- The Ouroboros harness still owns local setup commands, the Mail sense, bounded mail tools, local development stores, and Ouro Mailbox.
 - Azure proof deployment is live from this repo.
 - Runtime, infrastructure, and workflow changes on `main` deploy automatically after green CI through GitHub OIDC. The skip decision compares the commit-tagged image currently running in Azure with the CI-tested commit, so docs-only changes skip Azure rollout only when the whole range since the deployed image is documentation-only.
 - Mail Ingress listens on internal target port `2525` and is exposed on public SMTP port `25`.
@@ -86,6 +86,6 @@ Slugger local testing can resume before auto-deployment. These are not blocked b
 - Local Mail sense readiness.
 - Bounded mail reads.
 - Screener decisions.
-- Ouro Outlook audit.
+- Ouro Mailbox audit.
 
 Live inbound forwarding to `@ouro.bot` should use the proven public edge, but HEY browser auth/MFA/export/forwarding confirmation and any live mail sent from a human-controlled account remain explicit human actions.

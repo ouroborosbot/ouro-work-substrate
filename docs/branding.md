@@ -9,7 +9,7 @@ Names matter here because the product is new enough that sloppy language can qui
 - **Ouro Work**: the account substrate: vault, mail, future calendar/files/tasks/contacts/audit.
 - **Ouro Mail**: agent-owned email service and mail sense.
 - **Ouro Vault**: agent-owned credential and private-state vault surface.
-- **Ouro Outlook**: local read-only UI for inspecting an agent mailbox and audit trail.
+- **Ouro Mailbox**: local read-only UI for inspecting an agent mailbox and audit trail.
 
 ## Rule Of Thumb
 
