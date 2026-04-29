@@ -51,7 +51,7 @@ describe("mail recovery runbook documentation contract", () => {
       "mail_recent",
       "mail_screener",
       "mail_access_log",
-      "Ouro Outlook",
+      "Ouro Mailbox",
       "Event Grid",
       "Azure Communication Services",
       "mailroom.autonomousSendPolicy",

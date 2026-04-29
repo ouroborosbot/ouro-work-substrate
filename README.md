@@ -14,7 +14,7 @@ This repo owns the hosted pieces of the work substrate:
 - `apps/vault-control`: authenticated Vaultwarden account creation.
 - `infra/azure`: Azure Container Apps, Blob Storage, ACR, managed identity, Log Analytics, and deployment templates.
 
-The local Ouroboros harness still owns the agent runtime, CLI, local senses, bounded read tools, setup guidance, and Ouro Outlook UI. Hosted code belongs here; agent habitation code belongs there.
+The local Ouroboros harness still owns the agent runtime, CLI, local senses, bounded read tools, setup guidance, and Ouro Mailbox UI. Hosted code belongs here; agent habitation code belongs there.
 
 ## The Shape Of Trust
 
