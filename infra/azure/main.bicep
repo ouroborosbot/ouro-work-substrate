@@ -29,7 +29,7 @@ param tripControlAdminToken string
 param tripContainerName string = 'trips'
 
 @description('Vaultwarden/Bitwarden server URL used by vault-control.')
-param vaultServerUrl string = 'https://vault.ouroboros.bot'
+param vaultServerUrl string = 'https://vault.ouro.bot'
 
 @description('Bearer token for mail-control.')
 @secure()
