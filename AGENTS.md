@@ -16,7 +16,7 @@ Ouro Work exists so agents can have real work accounts without pretending to be 
 - bounded tools that let the agent inspect what it needs;
 - audit strong enough that a human and agent can reconstruct what happened later.
 
-The hosted service should be powerful without being nosy. It routes, stores, encrypts, and proves health. It does not become the agent's memory, vault, or private mail reader.
+The hosted service should be powerful without being nosy. It routes, stores, encrypts, and proves health. It does not become the agent's diary, vault, or private mail reader.
 
 ## First Orientation
 
@@ -52,7 +52,7 @@ If you are here to operate production:
 - `apps/vault-control`: authenticated vault account creation.
 - `infra/azure`: the deployable Azure shape.
 - `.github/workflows`: CI and deployment. Main deploys automatically only after CI succeeds.
-- `docs`: the memory palace. Keep it pleasant enough that agents actually read it.
+- `docs`: the reference shelf. Keep it pleasant enough that agents actually read it.
 
 ## How To Leave The Place Better
 

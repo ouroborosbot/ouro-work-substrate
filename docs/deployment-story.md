@@ -2,7 +2,7 @@
 
 This repository is the hosted service home for Ouro Work. It does not replace the local Ouroboros harness runtime; it gives that runtime a clean, deployable service boundary for mail, vault, and future work surfaces.
 
-This doc is the memory of how the deploy story changed. Keep it honest. A future agent should be able to tell what is proven, what is gated, and what is merely imagined.
+This doc is the record of how the deploy story changed. Keep it honest. A future agent should be able to tell what is proven, what is gated, and what is merely imagined.
 
 ## Current State
 

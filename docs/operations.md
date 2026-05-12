@@ -1,6 +1,6 @@
 # Operations
 
-This is the runbook for keeping Ouro Work calm in production. It should read like something you can trust when you are tired: direct commands, clear checks, and enough context to remember why the steps matter.
+This is the runbook for keeping Ouro Work calm in production. It should read like something you can trust when you are tired: direct commands, clear checks, and enough context to see why the steps matter.
 
 ## Services
 
