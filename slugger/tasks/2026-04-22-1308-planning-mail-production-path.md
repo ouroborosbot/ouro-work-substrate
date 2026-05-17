@@ -21,7 +21,7 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 ## Scope
 
 ### In Scope
-- Make changes in `ouro-work-substrate` and, when needed, the local harness checkout at `/Users/arimendelow/Projects/ouroboros-agent-harness` whose `origin` remote is `ouroborosbot/ouroboros`; keep each repo's planning/branch rules and PR discipline.
+- Make changes in `ouro-work-substrate` and, when needed, the local harness checkout at `/Users/arimendelow/Projects/ouroboros-agent-harness` whose `origin` remote is `ourostack/ouroboros`; keep each repo's planning/branch rules and PR discipline.
 - Preserve the foundation distinction from the prior task docs: native agent correspondence and delegated human mailbox access share Mailroom primitives but have different authority semantics, UI labels, attention behavior, trust rules, and recovery paths.
 - Treat `ouro.bot` as the Ouro Work mail domain and intentionally move away from the current broken Microsoft 365-shaped MX/SPF setup after backup, proof, and explicit cutover approval.
 - Make hosted Mail Control the production provisioning truth for `ouro account ensure` / `ouro connect mail`: public registry in Blob, newly generated private keys returned once, private keys stored immediately in the owning agent vault.
@@ -105,7 +105,7 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - Prior foundation docs were reviewed and are authoritative context: the mail story has two lanes, native agent mail sense and delegated human mailbox source, and the production plan must keep them visibly separate.
 - Agent-native mail is Slugger's own correspondence at `slugger@ouro.bot`; delegated HEY mail is Ari's mailbox content copied into Slugger's work substrate under owner/source provenance.
 - Full-moon includes policy-governed autonomous native-agent sending. This does not imply sending as Ari, sending from delegated source aliases, or bypassing trust/rate/audit controls.
-- Work may span `ouro-work-substrate` and the local harness checkout at `/Users/arimendelow/Projects/ouroboros-agent-harness` / `ouroborosbot/ouroboros`; do not constrain implementation to the hosted repo if the local agent experience needs harness changes.
+- Work may span `ouro-work-substrate` and the local harness checkout at `/Users/arimendelow/Projects/ouroboros-agent-harness` / `ourostack/ouroboros`; do not constrain implementation to the hosted repo if the local agent experience needs harness changes.
 - Packaging and deployment are three coordinated release lanes: harness CLI/runtime changes ship through the npm-published `@ouro.bot/cli` / `ouro.bot` product lane; hosted substrate apps ship as private commit-addressed Docker images deployed by Bicep/GitHub Actions; shared mail protocol semantics must either become a consumed package boundary or be protected by generated/schema contract tests.
 - `ouro.bot` is the intended Ouro Work mail domain.
 - The current HEY bounce is expected: `ouro.bot` MX resolves to `ouro-bot.mail.protection.outlook.com`, and that hostname currently has no A/CNAME answer.
@@ -190,7 +190,7 @@ This is full-moon scope. It is not constrained to one PR, one repo, one turn, or
 - 2026-04-22 13:29 Expanded plan to full-moon scope across substrate, harness, DNS, HEY onboarding, outbound, recovery, deployment, and live smoke tests
 - 2026-04-22 13:30 Clarified that remaining items are operational gates, not unresolved scope questions
 - 2026-04-22 13:38 Added human-needed lock list for approvals, secrets, DNS, Azure, HEY, vault, testing, and secret hygiene
-- 2026-04-22 13:39 Clarified the local harness checkout and `ouroborosbot/ouroboros` remote
+- 2026-04-22 13:39 Clarified the local harness checkout and `ourostack/ouroboros` remote
 - 2026-04-22 14:32 Reviewed foundation mail docs, marked process gates waived, separated native agent mail from delegated human mailbox source, and added policy-governed autonomous native sending
 - 2026-04-22 17:25 Corrected credential orientation after compaction: generic vault item first, workflow binding second, provider driver/template last; Porkbun remains only the current DNS driver for `ouro.bot`
 - 2026-04-22 17:36 Promoted the harness vault item surface fix to first-order scope before mail/DNS implementation

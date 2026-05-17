@@ -38,8 +38,8 @@ describe("mail recovery runbook documentation contract", () => {
 
     for (const term of [
       "infra/dns/ouro.bot.binding.json",
-      "gh run list --repo ouroborosbot/ouro-work-substrate",
-      "gh workflow run deploy-azure.yml --repo ouroborosbot/ouro-work-substrate",
+      "gh run list --repo ourostack/ouro-work-substrate",
+      "gh workflow run deploy-azure.yml --repo ourostack/ouro-work-substrate",
       "az containerapp revision list",
       "GET /health",
       "POST /v1/mailboxes/ensure",

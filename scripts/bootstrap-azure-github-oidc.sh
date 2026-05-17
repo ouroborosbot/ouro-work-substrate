@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo="${1:-ouroborosbot/ouro-work-substrate}"
+repo="${1:-ourostack/ouro-work-substrate}"
 resource_group="${2:-rg-ouro-work-substrate}"
 location="${3:-eastus2}"
 environment_name="${4:-prod}"

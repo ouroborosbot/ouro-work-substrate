@@ -4,7 +4,7 @@
 
 Substrate:
 
-- PR: https://github.com/ouroborosbot/ouro-work-substrate/pull/17
+- PR: https://github.com/ourostack/ouro-work-substrate/pull/17
 - Merge commit: `cdc84d0dafaeb2aa6de87f55a9d8a868a1330ab1`
 - PR checks:
   - `test`: pass
@@ -12,7 +12,7 @@ Substrate:
 
 Harness:
 
-- PR: https://github.com/ouroborosbot/ouroboros/pull/590
+- PR: https://github.com/ourostack/ouroboros/pull/590
 - Merge commit: `3ef7054294aac2b09091ff998cf52e1ae9f01c4b`
 - PR checks:
   - `coverage`: pass
@@ -21,7 +21,7 @@ Harness:
 
 ## Harness Release
 
-Main workflow: https://github.com/ouroborosbot/ouroboros/actions/runs/24822283326
+Main workflow: https://github.com/ourostack/ouroboros/actions/runs/24822283326
 
 Result:
 
@@ -47,13 +47,13 @@ Local install verification:
 
 Main CI workflow:
 
-- https://github.com/ouroborosbot/ouro-work-substrate/actions/runs/24822104244
+- https://github.com/ourostack/ouro-work-substrate/actions/runs/24822104244
 - commit: `cdc84d0dafaeb2aa6de87f55a9d8a868a1330ab1`
 - result: pass
 
 Deploy workflow:
 
-- https://github.com/ouroborosbot/ouro-work-substrate/actions/runs/24822161358
+- https://github.com/ourostack/ouro-work-substrate/actions/runs/24822161358
 - commit: `cdc84d0dafaeb2aa6de87f55a9d8a868a1330ab1`
 - result: pass
 

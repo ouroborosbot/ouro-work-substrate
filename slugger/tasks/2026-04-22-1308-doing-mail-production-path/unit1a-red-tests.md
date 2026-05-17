@@ -53,7 +53,7 @@ Intentional failures:
 
 ## Harness Branch
 
-- Repo: `ouroborosbot/ouroboros`
+- Repo: `ourostack/ouroboros`
 - Worktree: `/Users/arimendelow/Projects/_worktrees/slugger-mail-two-lane-contract`
 - Branch: `slugger/mail-two-lane-contract`
 - Base: `origin/main` at `c4c784edc1f209504c2d991f23d9394132cf5f69`

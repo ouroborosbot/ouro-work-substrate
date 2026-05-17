@@ -9,7 +9,7 @@ Captured: 2026-04-22 17:56 PDT
 - Path: `/Users/arimendelow/Projects/ouro-work-substrate`
 - Branch: `slugger/mail-production-shape`
 - Head: `d016d88c77d0ac7d2a755ae8bfbd0966cb3ca7c1`
-- Remote: `git@github.com:ouroborosbot/ouro-work-substrate.git`
+- Remote: `git@github.com:ourostack/ouro-work-substrate.git`
 - Status at capture: clean, tracking `origin/slugger/mail-production-shape`
 - Task docs: `/Users/arimendelow/Projects/ouro-work-substrate/slugger/tasks/2026-04-22-1308-*.md`
 
@@ -21,14 +21,14 @@ Captured: 2026-04-22 17:56 PDT
 - Task branch: `slugger/vault-item-surface`
 - Task branch base: `origin/main`
 - Head: `3c62b8de2c4d66472159ec09fe8efacba753525f`
-- Remote: `https://github.com/ouroborosbot/ouroboros`
+- Remote: `https://github.com/ourostack/ouroboros`
 - Status at capture: clean
 
 `origin/main` contains #586, `Add ops vault entry for Porkbun credentials`. That is the exact surface Unit 0a-c will correct.
 
 ## Skill Freshness
 
-Checked `~/.agents/skills/_registry.json` against `github.com/ouroborosbot/ouroboros-skills` for:
+Checked `~/.agents/skills/_registry.json` against `github.com/ourostack/ouroboros-skills` for:
 
 - `skill-management`
 - `work-ideator`
@@ -153,12 +153,12 @@ Interpretation:
 
 Work Substrate:
 
-- `gh pr list --repo ouroborosbot/ouro-work-substrate --limit 20`: no open PRs printed.
+- `gh pr list --repo ourostack/ouro-work-substrate --limit 20`: no open PRs printed.
 - Latest runs included successful `CI` and successful `Deploy Azure` on `main` at 2026-04-22T20:06:56Z.
 
 Ouroboros Agent Harness:
 
-- `gh pr list --repo ouroborosbot/ouroboros --limit 10`: no open PRs printed.
+- `gh pr list --repo ourostack/ouroboros --limit 10`: no open PRs printed.
 - Latest main run for #586 was successful: `coverage-gate`, run `24807608718`, 2026-04-22T23:16:57Z.
 
 ## Slugger Local Readiness

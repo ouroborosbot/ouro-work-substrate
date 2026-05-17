@@ -8,7 +8,7 @@ This is a production gate for later DNS/mail work: workflow code may reference o
 
 ## Harness Branch
 
-- Repo: `ouroborosbot/ouroboros`
+- Repo: `ourostack/ouroboros`
 - Worktree: `/Users/arimendelow/Projects/_worktrees/slugger-vault-item-surface`
 - Branch: `slugger/vault-item-surface`
 - Head: `4dec8d50c9f5c05986352fb48616b9ceb229e563`
@@ -16,7 +16,7 @@ This is a production gate for later DNS/mail work: workflow code may reference o
 
 ## PR
 
-- PR: https://github.com/ouroborosbot/ouroboros/pull/587
+- PR: https://github.com/ourostack/ouroboros/pull/587
 - Created: 2026-04-22
 - Result: merged 2026-04-23T02:03:57Z
 - Merge commit: `c4c784edc1f209504c2d991f23d9394132cf5f69`
@@ -49,7 +49,7 @@ Harness `.github/workflows/coverage.yml` is the release lane:
 
 ## Published And Installed Evidence
 
-- Post-merge `coverage-gate` push run passed: https://github.com/ouroborosbot/ouroboros/actions/runs/24812690091
+- Post-merge `coverage-gate` push run passed: https://github.com/ourostack/ouroboros/actions/runs/24812690091
 - The `publish` job passed after publishing/verifying packages and running release smoke.
 - `npm view @ouro.bot/cli@latest version`: `0.1.0-alpha.466`
 - `npm view ouro.bot@latest version`: `0.1.0-alpha.466`
@@ -73,7 +73,7 @@ Harness `.github/workflows/coverage.yml` is the release lane:
 
 ## Notes
 
-- The first `gh pr create` attempt failed because `--head slugger/vault-item-surface` was parsed as an `owner:branch` pair. Retried successfully with `--head ouroborosbot:slugger/vault-item-surface`.
+- The first `gh pr create` attempt failed because `--head slugger/vault-item-surface` was parsed as an `owner:branch` pair. Retried successfully with `--head ourostack:slugger/vault-item-surface`.
 - Before merge, local `ouro -v`, `npx ouro.bot@latest -v`, `@ouro.bot/cli@latest`, and `ouro.bot@latest` all reported `0.1.0-alpha.465`; `0.1.0-alpha.466` was not published yet. This is expected until the `main` publish job completes.
-- Post-merge `coverage-gate` push run for `main`: https://github.com/ouroborosbot/ouroboros/actions/runs/24812690091
+- Post-merge `coverage-gate` push run for `main`: https://github.com/ourostack/ouroboros/actions/runs/24812690091
 - This unit became done only after the installed runtime, not just the branch, had the surface.

@@ -14,8 +14,8 @@ If those lanes are confused, stop and fix provenance before doing more delivery 
 1. Check CI and deploy state:
 
    ```bash
-   gh run list --repo ouroborosbot/ouro-work-substrate --limit 8
-   gh pr list --repo ouroborosbot/ouro-work-substrate
+   gh run list --repo ourostack/ouro-work-substrate --limit 8
+   gh pr list --repo ourostack/ouro-work-substrate
    ```
 
 2. Check hosted health:
@@ -57,8 +57,8 @@ If those lanes are confused, stop and fix provenance before doing more delivery 
 
 ## Production Surfaces
 
-- GitHub Actions: `gh run list --repo ouroborosbot/ouro-work-substrate`.
-- Manual hosted deploy: `gh workflow run deploy-azure.yml --repo ouroborosbot/ouro-work-substrate`.
+- GitHub Actions: `gh run list --repo ourostack/ouro-work-substrate`.
+- Manual hosted deploy: `gh workflow run deploy-azure.yml --repo ourostack/ouro-work-substrate`.
 - Container Apps rollback: `az containerapp revision list` and `az containerapp ingress traffic set`.
 - Hosted control: `GET /health`, `POST /v1/mailboxes/ensure`, `POST /v1/mailboxes/rotate-keys`, ACS Event Grid delivery endpoint.
 - Harness repair: `ouro account ensure`, `ouro connect mail`, `ouro mail import-mbox`.

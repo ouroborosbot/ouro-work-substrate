@@ -25,13 +25,13 @@ Use this when you just need to know whether the house is standing.
 1. Check latest GitHub runs:
 
    ```bash
-   gh run list --repo ouroborosbot/ouro-work-substrate --limit 8
+   gh run list --repo ourostack/ouro-work-substrate --limit 8
    ```
 
 2. Confirm no open PRs are waiting unexpectedly:
 
    ```bash
-   gh pr list --repo ouroborosbot/ouro-work-substrate
+   gh pr list --repo ourostack/ouro-work-substrate
    ```
 
 3. Check deployed app health using the current deploy outputs or known FQDNs:
@@ -96,13 +96,13 @@ The credential item may have freeform notes for agent/human orientation, but cod
 Bootstrap or repair Azure OIDC, repo variables, and resource-group role assignments with:
 
 ```bash
-scripts/bootstrap-azure-github-oidc.sh ouroborosbot/ouro-work-substrate rg-ouro-work-substrate eastus2 prod
+scripts/bootstrap-azure-github-oidc.sh ourostack/ouro-work-substrate rg-ouro-work-substrate eastus2 prod
 ```
 
 That script creates both accepted GitHub OIDC subjects:
 
-- `repo:ouroborosbot/ouro-work-substrate:ref:refs/heads/main`
-- `repo:ouroborosbot/ouro-work-substrate:environment:prod`
+- `repo:ourostack/ouro-work-substrate:ref:refs/heads/main`
+- `repo:ourostack/ouro-work-substrate:environment:prod`
 
 The second one matters because the deploy workflow uses the `prod` GitHub Environment.
 
@@ -115,7 +115,7 @@ When deployment is needed, the workflow checks out the exact CI-tested commit, b
 Use manual deployment for intentional redeploys, token rotation, or proof-port changes:
 
 ```bash
-gh workflow run deploy-azure.yml --repo ouroborosbot/ouro-work-substrate
+gh workflow run deploy-azure.yml --repo ourostack/ouro-work-substrate
 ```
 
 The deployment is serialized per environment so only one production rollout runs at a time. Prefer this workflow over local one-off deploys; the workflow is the paved path.
