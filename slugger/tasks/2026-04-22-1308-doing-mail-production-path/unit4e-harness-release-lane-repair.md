@@ -24,9 +24,9 @@ Harness PR #589 added retry handling around transient npm registry/network failu
 
 Evidence:
 
-- PR: `https://github.com/ouroborosbot/ouroboros/pull/589`
+- PR: `https://github.com/ourostack/ouroboros/pull/589`
 - Merge commit: `544c223b42c3afe6c924109bc5a5a5ac9457389d`
-- Main run: `https://github.com/ouroborosbot/ouroboros/actions/runs/24819869822`
+- Main run: `https://github.com/ourostack/ouroboros/actions/runs/24819869822`
 - GitHub checks: integration passed, package E2E passed, coverage passed, publish passed, published binary smoke passed.
 - npm `latest`: `@ouro.bot/cli@0.1.0-alpha.468`, `ouro.bot@0.1.0-alpha.468`.
 - Local installed binaries: `ouro --version` and `ouro.bot --version` both report `0.1.0-alpha.468`.

@@ -23,8 +23,8 @@ The current production shape exposes public SMTP port `25` as an additional TCP 
 Mail Ingress can advertise SMTP `STARTTLS` when the deploy workflow receives both PEM secrets:
 
 ```bash
-gh secret set MAIL_INGRESS_TLS_KEY --repo ouroborosbot/ouro-work-substrate < tls.key
-gh secret set MAIL_INGRESS_TLS_CERT --repo ouroborosbot/ouro-work-substrate < tls.crt
+gh secret set MAIL_INGRESS_TLS_KEY --repo ourostack/ouro-work-substrate < tls.key
+gh secret set MAIL_INGRESS_TLS_CERT --repo ourostack/ouro-work-substrate < tls.crt
 ```
 
 The key and certificate are passed as secure Bicep parameters and mounted as secret files in the Mail Ingress container. Configure both or neither. The workflow rejects a half-configured pair; with neither configured, STARTTLS stays disabled and the edge is not ready for production MX.
@@ -36,14 +36,14 @@ The SMTP transaction recipient cap is controlled by the optional `AZURE_MAIL_ING
 Bootstrap Azure OIDC, GitHub repo variables, and resource-group permissions once:
 
 ```bash
-scripts/bootstrap-azure-github-oidc.sh ouroborosbot/ouro-work-substrate rg-ouro-work-substrate eastus2 prod
+scripts/bootstrap-azure-github-oidc.sh ourostack/ouro-work-substrate rg-ouro-work-substrate eastus2 prod
 ```
 
 Set the two control-plane tokens as GitHub secrets:
 
 ```bash
-gh secret set MAIL_CONTROL_ADMIN_TOKEN --repo ouroborosbot/ouro-work-substrate
-gh secret set VAULT_CONTROL_ADMIN_TOKEN --repo ouroborosbot/ouro-work-substrate
+gh secret set MAIL_CONTROL_ADMIN_TOKEN --repo ourostack/ouro-work-substrate
+gh secret set VAULT_CONTROL_ADMIN_TOKEN --repo ourostack/ouro-work-substrate
 ```
 
 Set `MAIL_INGRESS_TLS_KEY` and `MAIL_INGRESS_TLS_CERT` before any production MX proof. They are optional only for local/proof deployments that intentionally keep STARTTLS disabled. The current production deployment has both set from the workflow-managed certificate vault item.
@@ -53,7 +53,7 @@ After that, runtime, infrastructure, and workflow changes merged to `main` deplo
 Manual deploy is still available for repairs, token rotation, and proof-port changes:
 
 ```bash
-gh workflow run deploy-azure.yml --repo ouroborosbot/ouro-work-substrate
+gh workflow run deploy-azure.yml --repo ourostack/ouro-work-substrate
 ```
 
 The workflow bootstraps or repairs ACR, builds and pushes all service images, then deploys Container Apps through Bicep. Control tokens are GitHub secrets passed as secure Bicep parameters; do not commit token values.
@@ -64,8 +64,8 @@ The deploy identity is a user-assigned managed identity named for the environmen
 
 It needs federated credentials for both subjects:
 
-- `repo:ouroborosbot/ouro-work-substrate:ref:refs/heads/main`
-- `repo:ouroborosbot/ouro-work-substrate:environment:prod`
+- `repo:ourostack/ouro-work-substrate:ref:refs/heads/main`
+- `repo:ourostack/ouro-work-substrate:environment:prod`
 
 The environment subject is required because the deploy workflow uses a GitHub Environment. If Azure login fails with "No matching federated identity record", rerun the bootstrap script and verify both credentials exist.
 

@@ -28,10 +28,10 @@ Observed browser state:
 
 The handoff record itself is merged and verified on `main`:
 
-- PR: <https://github.com/ouroborosbot/ouro-work-substrate/pull/24>
+- PR: <https://github.com/ourostack/ouro-work-substrate/pull/24>
 - Merge commit: `d7aba6f69a84d20b0c45e105e864ad6f666149b8`
-- Main CI: <https://github.com/ouroborosbot/ouro-work-substrate/actions/runs/24837914772>
-- Deploy hook: <https://github.com/ouroborosbot/ouro-work-substrate/actions/runs/24837984332>
+- Main CI: <https://github.com/ourostack/ouro-work-substrate/actions/runs/24837914772>
+- Deploy hook: <https://github.com/ourostack/ouro-work-substrate/actions/runs/24837984332>
 - Deploy result: success, with runtime deployment steps skipped because this was a documentation-only change.
 
 ## Next Human Action
