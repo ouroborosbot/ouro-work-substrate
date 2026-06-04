@@ -10,8 +10,8 @@
   "dependencies": {
     "@azure/identity": "^4.13.0",
     "@azure/storage-blob": "^12.31.0",
-    "mailparser": "^3.9.8",
-    "smtp-server": "^3.18.4",
+    "mailparser": "^3.9.9",
+    "smtp-server": "^3.18.5",
     "@ouro/work-protocol": "0.1.0"
   }
 }
