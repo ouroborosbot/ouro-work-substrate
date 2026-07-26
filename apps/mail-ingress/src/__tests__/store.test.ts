@@ -1,7 +1,7 @@
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { decryptMailPayload, decryptStoredMailMessage, ensureMailboxRegistry } from "@ouro/work-protocol"
 import { FileMailroomStore, ingestRawMailToStore } from "../store"
 import { parsePrivateMailEnvelope } from "../server"
@@ -90,5 +90,41 @@ describe("mail ingress store", () => {
 
     expect(result.accepted).toHaveLength(0)
     expect(result.rejectedRecipients).toEqual(["no@ouro.bot"])
+    expect(result.orphanedRecipients).toEqual([])
+  })
+
+  it("counts and alarms on orphaned recipients dropped during ingest", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ouro-mail-store-orphan-"))
+    const ensured = ensureMailboxRegistry({ agentId: "slugger", ownerEmail: "ari@mendelow.me", source: "hey" })
+    const alias = ensured.sourceAlias!
+    const orphaned = { ...ensured.registry, mailboxes: [] }
+    const raw = Buffer.from(`From: ari@mendelow.me\r\nTo: ${alias}\r\nSubject: Forwarded\r\n\r\nBody`, "utf-8")
+    const parsed = await parsePrivateMailEnvelope(raw)
+    const stdout: string[] = []
+    const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation((chunk: any) => {
+      stdout.push(String(chunk))
+      return true
+    })
+
+    try {
+      const result = await ingestRawMailToStore({
+        registry: orphaned,
+        store: new FileMailroomStore(dir),
+        envelope: { mailFrom: "ari@mendelow.me", rcptTo: [alias] },
+        rawMime: raw,
+        privateEnvelope: parsed.privateEnvelope,
+      })
+
+      expect(result.accepted).toHaveLength(0)
+      expect(result.orphanedRecipients).toEqual([alias])
+      const logged = stdout.join("")
+      expect(logged).toContain('"event":"mail_delivery_orphaned"')
+      // The ingest summary itself escalates, so an aggregate log line cannot hide a dead pipe.
+      expect(logged).toContain('"event":"mail_ingest_complete"')
+      expect(logged).toContain('"orphaned":1')
+      expect(logged.split("\n").find((line) => line.includes("mail_ingest_complete"))).toContain('"level":"error"')
+    } finally {
+      stdoutSpy.mockRestore()
+    }
   })
 })

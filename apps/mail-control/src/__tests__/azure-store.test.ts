@@ -95,6 +95,25 @@ describe("AzureBlobMailRegistryStore", () => {
     await expect(store.ensureMailbox({ agentId: "clio" })).rejects.toThrow("etag conflict")
   })
 
+  it("rotates keys under the same optimistic condition without moving identities", async () => {
+    const serviceClient = new FakeBlobServiceClient()
+    const store = new AzureBlobMailRegistryStore(serviceClient as never, "mailroom", "registry/mailroom.json", "ouro.bot")
+    const ensured = await store.ensureMailbox({ agentId: "slugger", ownerEmail: "ari@mendelow.me", source: "hey" })
+    const grantId = ensured.registry.sourceGrants[0]!.grantId
+    const previousKeyId = ensured.registry.sourceGrants[0]!.keyId
+
+    const rotated = await store.rotateKeys({ agentId: "slugger" })
+    const served = (await store.read()).registry
+
+    expect(rotated.rotations.map((entry) => entry.compartmentId)).toEqual(["mailbox_slugger", grantId])
+    expect(served.sourceGrants[0]!.grantId).toBe(grantId)
+    expect(served.sourceGrants[0]!.aliasAddress).toBe(ensured.sourceAlias)
+    expect(served.sourceGrants[0]!.previousKeys?.map((key) => key.keyId)).toEqual([previousKeyId])
+
+    const blob = serviceClient.container.getBlockBlobClient("registry/mailroom.json")
+    expect(blob.uploads.at(-1)).toEqual({ conditions: { ifMatch: "etag-1" } })
+  })
+
   it("reads registries from string chunks without etags", async () => {
     const serviceClient = new FakeBlobServiceClient()
     const registry = {

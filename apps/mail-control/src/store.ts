@@ -1,7 +1,14 @@
 import * as fs from "node:fs"
 import * as path from "node:path"
 import { BlobServiceClient, type BlockBlobClient } from "@azure/storage-blob"
-import { ensurePublicMailboxRegistry, type MailroomPublicEnsureResult, type MailroomRegistry } from "@ouro/work-protocol"
+import {
+  assertPublishableMailroomRegistry,
+  ensurePublicMailboxRegistry,
+  rotateMailroomKeys,
+  type MailroomPublicEnsureResult,
+  type MailroomRegistry,
+  type MailroomRotationResult,
+} from "@ouro/work-protocol"
 
 export interface EnsureMailboxInput {
   agentId: string
@@ -10,8 +17,22 @@ export interface EnsureMailboxInput {
   sourceTag?: string
 }
 
+export interface RotateKeysInput {
+  agentId: string
+  compartments?: string[]
+  graceMs?: number
+  now?: Date
+}
+
 export interface MailRegistryStore {
   ensureMailbox(input: EnsureMailboxInput): Promise<MailroomPublicEnsureResult & { revision: string }>
+  /**
+   * Rotate key material for an agent while holding every identity fixed.
+   *
+   * The publish is gated on `assertPublishableMailroomRegistry`, so a rotation that would drop
+   * a compartment id or a deliverable address never reaches the served registry.
+   */
+  rotateKeys(input: RotateKeysInput): Promise<MailroomRotationResult & { revision: string }>
   read(): Promise<{ registry: MailroomRegistry; revision: string }>
 }
 
@@ -26,6 +47,10 @@ function emptyRegistry(domain: string): MailroomRegistry {
 
 function registryRevision(registry: MailroomRegistry): string {
   return `${registry.mailboxes.length}:${registry.sourceGrants.length}:${Buffer.from(JSON.stringify(registry)).byteLength}`
+}
+
+function registryPayload(registry: MailroomRegistry): string {
+  return `${JSON.stringify(registry, null, 2)}\n`
 }
 
 export class FileMailRegistryStore implements MailRegistryStore {
@@ -43,12 +68,32 @@ export class FileMailRegistryStore implements MailRegistryStore {
     return { registry, revision: registryRevision(registry) }
   }
 
+  /**
+   * Write through a temp file and rename.
+   *
+   * `renameSync` is atomic within a filesystem, so a crash or a rejected publish leaves the
+   * previous registry byte-for-byte intact and still serving instead of truncated.
+   */
+  private publish(registry: MailroomRegistry, previous: MailroomRegistry): void {
+    assertPublishableMailroomRegistry({ registry, previous })
+    fs.mkdirSync(path.dirname(this.filePath), { recursive: true })
+    const tempPath = `${this.filePath}.${process.pid}.tmp`
+    fs.writeFileSync(tempPath, registryPayload(registry), "utf-8")
+    fs.renameSync(tempPath, this.filePath)
+  }
+
   async ensureMailbox(input: EnsureMailboxInput): Promise<MailroomPublicEnsureResult & { revision: string }> {
     const { registry } = await this.read()
     const ensured = ensurePublicMailboxRegistry({ ...input, domain: this.domain, registry })
-    fs.mkdirSync(path.dirname(this.filePath), { recursive: true })
-    fs.writeFileSync(this.filePath, `${JSON.stringify(ensured.registry, null, 2)}\n`, "utf-8")
+    this.publish(ensured.registry, registry)
     return { ...ensured, revision: registryRevision(ensured.registry) }
+  }
+
+  async rotateKeys(input: RotateKeysInput): Promise<MailroomRotationResult & { revision: string }> {
+    const { registry } = await this.read()
+    const rotated = rotateMailroomKeys({ ...input, registry })
+    this.publish(rotated.registry, registry)
+    return { ...rotated, revision: registryRevision(rotated.registry) }
   }
 }
 
@@ -85,26 +130,39 @@ export class AzureBlobMailRegistryStore implements MailRegistryStore {
     return { registry, revision: registryRevision(registry) }
   }
 
-  async ensureMailbox(input: EnsureMailboxInput): Promise<MailroomPublicEnsureResult & { revision: string }> {
+  /**
+   * Read-modify-publish under an etag condition, gated on registry integrity.
+   *
+   * The gate runs against the revision this attempt actually read, so a rotation or ensure that
+   * would orphan an id or address is rejected before any bytes are uploaded.
+   */
+  private async publish<T extends { registry: MailroomRegistry }>(
+    mutate: (previous: MailroomRegistry) => T,
+  ): Promise<T & { revision: string }> {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const blob = await this.blob()
       const existing = await downloadRegistry(blob, this.domain)
-      const ensured = ensurePublicMailboxRegistry({
-        ...input,
-        domain: this.domain,
-        registry: existing.registry,
-      })
-      const payload = Buffer.from(`${JSON.stringify(ensured.registry, null, 2)}\n`, "utf-8")
+      const next = mutate(existing.registry)
+      assertPublishableMailroomRegistry({ registry: next.registry, previous: existing.registry })
+      const payload = Buffer.from(registryPayload(next.registry), "utf-8")
       try {
         await blob.uploadData(payload, {
           conditions: existing.etag ? { ifMatch: existing.etag } : { ifNoneMatch: "*" },
         })
-        return { ...ensured, revision: registryRevision(ensured.registry) }
+        return { ...next, revision: registryRevision(next.registry) }
       } catch (error) {
         if (attempt === 2) throw error
       }
     }
     /* v8 ignore next -- the loop either returns after upload or rethrows the final upload error. */
     throw new Error("mail registry update failed after retries")
+  }
+
+  async ensureMailbox(input: EnsureMailboxInput): Promise<MailroomPublicEnsureResult & { revision: string }> {
+    return this.publish((previous) => ensurePublicMailboxRegistry({ ...input, domain: this.domain, registry: previous }))
+  }
+
+  async rotateKeys(input: RotateKeysInput): Promise<MailroomRotationResult & { revision: string }> {
+    return this.publish((previous) => rotateMailroomKeys({ ...input, registry: previous }))
   }
 }
