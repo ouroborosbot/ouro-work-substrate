@@ -3,14 +3,15 @@ import type { TlsOptions } from "node:tls"
 import { simpleParser } from "mailparser"
 import { SMTPServer, type SMTPServerDataStream, type SMTPServerSession } from "smtp-server"
 import {
+  classifyMailAddress,
   normalizeMailAddress,
-  resolveMailAddress,
   snippetText,
+  validateMailroomRegistry,
   type MailAuthenticationState,
   type MailAuthenticationSummary,
   type PrivateMailEnvelope,
 } from "@ouro/work-protocol"
-import { ingestRawMailToStore, type MailroomStore } from "./store"
+import { ingestRawMailToStore, logMailAddressFailure, type MailroomStore } from "./store"
 import { logEvent } from "./log"
 import type { MailroomRegistryProvider } from "./registry"
 
@@ -178,24 +179,26 @@ export function createMailIngressSmtpServer(options: MailIngressOptions): SMTPSe
       void options.registryProvider.current()
         .then((registry) => {
           const normalized = normalizeMailAddress(address.address)
-          const resolved = resolveMailAddress(registry, normalized)
-          if (!resolved) {
-            const error = new Error(`unknown recipient ${normalized}`) as Error & { responseCode?: number }
-            error.responseCode = 550
-            logEvent({
-              component: "mail-ingress",
-              event: "recipient_rejected",
-              message: "smtp recipient rejected",
-              meta: { address: normalized },
-            })
-            callback(error)
+          const outcome = classifyMailAddress(registry, normalized)
+          if (!outcome.ok) {
+            logMailAddressFailure(outcome.failure)
+            /*
+             * An orphaned compartment is a repairable mailroom fault, not a permanent address
+             * error. A 550 would teach upstream forwarders that a live delegation is dead; a
+             * 451 keeps the sender retrying while the alarm gets answered.
+             */
+            const orphaned = outcome.failure.reason === "orphaned-grant"
+            callback(smtpError(
+              orphaned ? "recipient temporarily undeliverable pending mailroom repair" : `unknown recipient ${normalized}`,
+              orphaned ? 451 : 550,
+            ))
             return
           }
           logEvent({
             component: "mail-ingress",
             event: "recipient_accepted",
             message: "smtp recipient accepted",
-            meta: { address: normalized, agentId: resolved.agentId },
+            meta: { address: normalized, agentId: outcome.resolved.agentId },
           })
           acceptedRecipientsBySession.set(session.id, acceptedRecipients + 1)
           callback()
@@ -266,12 +269,31 @@ export function createMailIngressHealthServer(registryProvider: MailroomRegistry
       return
     }
     void registryProvider.current().then((registry) => {
+      /*
+       * Counting mailboxes was never enough: after the 2026-05-07 rotation the counts stayed
+       * at 1/1 while the delivery path was dead. Surface structural faults here so a green
+       * health check cannot hide an orphaned compartment.
+       */
+      const problems = validateMailroomRegistry(registry)
+      if (problems.length > 0) {
+        logEvent({
+          level: "error",
+          component: "mail-ingress",
+          event: "mail_registry_degraded",
+          message: "ORPHANED MAILROOM IDENTITY: served registry has structural faults",
+          meta: { problems: problems.map((problem) => ({ kind: problem.kind, compartmentId: problem.compartmentId })) },
+        })
+      }
       const body = JSON.stringify({
         ok: true,
         service: "ouro-mail-ingress",
         domain: registry.domain,
         mailboxes: registry.mailboxes.length,
         sourceGrants: registry.sourceGrants.length,
+        registryProblems: problems.length,
+        ...(problems.length > 0
+          ? { problems: problems.map((problem) => ({ kind: problem.kind, compartmentId: problem.compartmentId })) }
+          : {}),
       })
       response.writeHead(200, {
         "content-type": "application/json",

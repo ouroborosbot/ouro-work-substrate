@@ -405,6 +405,103 @@ describe("mail ingress server", () => {
     }
   })
 
+  it("alarms distinctly when a known delivery path is orphaned rather than unknown", async () => {
+    const ensured = ensureMailboxRegistry({ agentId: "slugger", ownerEmail: "ari@mendelow.me", source: "hey" })
+    const alias = ensured.sourceAlias!
+    // The shape a partial registry publish leaves behind: the grant survives, its mailbox does not.
+    const orphaned = { ...ensured.registry, mailboxes: [] }
+    const stdout: string[] = []
+    const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation((chunk: any) => {
+      stdout.push(String(chunk))
+      return true
+    })
+    const server = createMailIngressSmtpServer({
+      registryProvider: new StaticRegistryProvider(orphaned),
+      store: new FileMailroomStore(fs.mkdtempSync(path.join(os.tmpdir(), "ouro-smtp-orphan-"))),
+    })
+    const port = await listenSmtp(server)
+    try {
+      const transcript = await smtpExchange(port, [
+        { send: "EHLO localhost\r\n", expect: /^250/m },
+        { send: "MAIL FROM:<ari@mendelow.me>\r\n", expect: /^250/m },
+        // 451, not 550: an orphaned compartment is repairable, so upstream must keep retrying.
+        { send: `RCPT TO:<${alias}>\r\n`, expect: /^451/m },
+        { send: "QUIT\r\n", expect: /^221/m },
+      ])
+      expect(transcript).toContain("recipient temporarily undeliverable pending mailroom repair")
+      const logged = stdout.join("")
+      expect(logged).toContain('"event":"mail_delivery_orphaned"')
+      expect(logged).toContain('"level":"error"')
+      expect(logged).toContain("ORPHANED MAILROOM IDENTITY")
+      expect(logged).toContain(ensured.registry.sourceGrants[0]!.grantId)
+      expect(logged).not.toContain('"event":"recipient_rejected"')
+    } finally {
+      stdoutSpy.mockRestore()
+      await closeSmtp(server)
+    }
+  })
+
+  it("reports a deliberately disabled grant separately from both spam and orphans", async () => {
+    const ensured = ensureMailboxRegistry({ agentId: "slugger", ownerEmail: "ari@mendelow.me", source: "hey" })
+    const alias = ensured.sourceAlias!
+    const disabled = {
+      ...ensured.registry,
+      sourceGrants: ensured.registry.sourceGrants.map((grant) => ({ ...grant, enabled: false })),
+    }
+    const stdout: string[] = []
+    const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation((chunk: any) => {
+      stdout.push(String(chunk))
+      return true
+    })
+    const server = createMailIngressSmtpServer({
+      registryProvider: new StaticRegistryProvider(disabled),
+      store: new FileMailroomStore(fs.mkdtempSync(path.join(os.tmpdir(), "ouro-smtp-disabled-"))),
+    })
+    const port = await listenSmtp(server)
+    try {
+      const transcript = await smtpExchange(port, [
+        { send: "EHLO localhost\r\n", expect: /^250/m },
+        { send: "MAIL FROM:<ari@mendelow.me>\r\n", expect: /^250/m },
+        { send: `RCPT TO:<${alias}>\r\n`, expect: /^550/m },
+        { send: "QUIT\r\n", expect: /^221/m },
+      ])
+      expect(transcript).toContain(`unknown recipient ${alias}`)
+      const logged = stdout.join("")
+      expect(logged).toContain('"event":"recipient_grant_disabled"')
+      expect(logged).toContain('"level":"warn"')
+      expect(logged).not.toContain('"event":"mail_delivery_orphaned"')
+    } finally {
+      stdoutSpy.mockRestore()
+      await closeSmtp(server)
+    }
+  })
+
+  it("stops reporting a structurally broken registry as plain green health", async () => {
+    const ensured = ensureMailboxRegistry({ agentId: "slugger", ownerEmail: "ari@mendelow.me", source: "hey" })
+    const grantId = ensured.registry.sourceGrants[0]!.grantId
+    const orphaned = { ...ensured.registry, mailboxes: [] }
+    const stdout: string[] = []
+    const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation((chunk: any) => {
+      stdout.push(String(chunk))
+      return true
+    })
+    const server = createMailIngressHealthServer(new StaticRegistryProvider(orphaned))
+    const port = await listen(server)
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/health`)
+      const body = await response.json() as Record<string, unknown>
+      expect(body).toEqual(expect.objectContaining({
+        sourceGrants: 1,
+        registryProblems: 1,
+        problems: [{ kind: "orphaned-grant", compartmentId: grantId }],
+      }))
+      expect(stdout.join("")).toContain('"event":"mail_registry_degraded"')
+    } finally {
+      stdoutSpy.mockRestore()
+      server.close()
+    }
+  })
+
   it("surfaces registry and data errors through SMTP responses", async () => {
     const registry = ensureMailboxRegistry({ agentId: "slugger" }).registry
     const rejectingRcpt = createMailIngressSmtpServer({

@@ -117,6 +117,20 @@ export interface MailOutboundRecord {
   error?: string
 }
 
+/**
+ * A key that has been rotated out but is still honoured for a bounded grace window.
+ *
+ * Rotation is never an instant cutover: upstream forwarders, in-flight deliveries, and
+ * agent vaults all cache key material. Retiring a key with an `acceptUntil` keeps those
+ * references resolvable instead of orphaning them the moment a new key is published.
+ */
+export interface RetiredMailKey {
+  keyId: string
+  publicKeyPem: string
+  retiredAt: string
+  acceptUntil: string
+}
+
 export interface AgentMailboxRecord {
   agentId: string
   mailboxId: string
@@ -124,6 +138,7 @@ export interface AgentMailboxRecord {
   keyId: string
   publicKeyPem: string
   defaultPlacement: MailPlacement
+  previousKeys?: RetiredMailKey[]
 }
 
 export interface SourceGrantRecord {
@@ -136,6 +151,14 @@ export interface SourceGrantRecord {
   publicKeyPem: string
   defaultPlacement: MailPlacement
   enabled: boolean
+  /**
+   * Durable forward references. A grant's `grantId` must survive key rotation, but if an
+   * id or alias ever has to change, the old handle is recorded here so stored messages and
+   * upstream delegations keep resolving to the live compartment.
+   */
+  previousGrantIds?: string[]
+  previousAliasAddresses?: string[]
+  previousKeys?: RetiredMailKey[]
 }
 
 export interface MailroomRegistry {
@@ -153,6 +176,8 @@ export interface ResolvedMailAddress {
   compartmentKind: MailCompartmentKind
   compartmentId: string
   keyId: string
+  /** Newest-first: the current key plus every retired key still inside its grace window. */
+  acceptedKeyIds: string[]
   publicKeyPem: string
   defaultPlacement: MailPlacement
   ownerEmail?: string
@@ -357,41 +382,198 @@ export function decryptMailJson<T>(payload: EncryptedPayload, privateKeyPem: str
   return JSON.parse(decryptMailPayload(payload, privateKeyPem).toString("utf-8")) as T
 }
 
-export function resolveMailAddress(registry: MailroomRegistry, address: string): ResolvedMailAddress | null {
+function normalizedAliasList(values: string[] | undefined): string[] {
+  return (values ?? []).map((value) => normalizeMailAddress(value))
+}
+
+/**
+ * Every key id this compartment still honours, newest first.
+ *
+ * The head is the key new mail is encrypted to. The tail is the bounded overlap that keeps
+ * a rotation from hard-failing deliveries and vault reads that still reference the old key.
+ */
+export function acceptedMailKeyIds(
+  record: { keyId: string; previousKeys?: RetiredMailKey[] },
+  now: Date = new Date(),
+): string[] {
+  const nowMs = now.getTime()
+  return [
+    record.keyId,
+    ...(record.previousKeys ?? [])
+      .filter((previous) => Date.parse(previous.acceptUntil) > nowMs)
+      .map((previous) => previous.keyId),
+  ]
+}
+
+export type MailAddressFailureReason = "unknown-address" | "grant-disabled" | "orphaned-grant"
+
+export interface MailAddressResolutionFailure {
+  reason: MailAddressFailureReason
+  address: string
+  agentId?: string
+  grantId?: string
+  detail: string
+}
+
+export type MailAddressResolution =
+  | { ok: true; resolved: ResolvedMailAddress }
+  | { ok: false; failure: MailAddressResolutionFailure }
+
+/**
+ * Resolve a delivery address, distinguishing "nobody has ever lived here" from
+ * "somebody lives here but the mailroom can no longer serve them".
+ *
+ * The second case is a dead pipe. Callers must be able to alarm on it separately instead of
+ * folding it into the same rejection an unsolicited stranger gets.
+ */
+export function classifyMailAddress(
+  registry: MailroomRegistry,
+  address: string,
+  options: { now?: Date } = {},
+): MailAddressResolution {
+  const now = options.now ?? new Date()
   const normalized = normalizeMailAddress(address)
   const mailbox = registry.mailboxes.find((entry) => normalizeMailAddress(entry.canonicalAddress) === normalized)
   if (mailbox) {
     return {
-      address: normalized,
-      agentId: mailbox.agentId,
-      mailboxId: mailbox.mailboxId,
-      compartmentKind: "native",
-      compartmentId: mailbox.mailboxId,
-      keyId: mailbox.keyId,
-      publicKeyPem: mailbox.publicKeyPem,
-      defaultPlacement: mailbox.defaultPlacement,
+      ok: true,
+      resolved: {
+        address: normalized,
+        agentId: mailbox.agentId,
+        mailboxId: mailbox.mailboxId,
+        compartmentKind: "native",
+        compartmentId: mailbox.mailboxId,
+        keyId: mailbox.keyId,
+        acceptedKeyIds: acceptedMailKeyIds(mailbox, now),
+        publicKeyPem: mailbox.publicKeyPem,
+        defaultPlacement: mailbox.defaultPlacement,
+      },
     }
   }
 
-  const grant = registry.sourceGrants.find((entry) => normalizeMailAddress(entry.aliasAddress) === normalized)
-  if (!grant || !grant.enabled) return null
+  const grant = registry.sourceGrants.find((entry) =>
+    normalizeMailAddress(entry.aliasAddress) === normalized ||
+    normalizedAliasList(entry.previousAliasAddresses).includes(normalized))
+  if (!grant) {
+    return {
+      ok: false,
+      failure: {
+        reason: "unknown-address",
+        address: normalized,
+        detail: `no mailbox or source grant serves ${normalized}`,
+      },
+    }
+  }
+  if (!grant.enabled) {
+    return {
+      ok: false,
+      failure: {
+        reason: "grant-disabled",
+        address: normalized,
+        agentId: grant.agentId,
+        grantId: grant.grantId,
+        detail: `source grant ${grant.grantId} is disabled`,
+      },
+    }
+  }
   const owningMailbox = registry.mailboxes.find((entry) => entry.agentId === grant.agentId)
   if (!owningMailbox) {
-    throw new Error(`Source grant ${grant.grantId} has no owning mailbox for agent ${grant.agentId}`)
+    return {
+      ok: false,
+      failure: {
+        reason: "orphaned-grant",
+        address: normalized,
+        agentId: grant.agentId,
+        grantId: grant.grantId,
+        detail: `Source grant ${grant.grantId} has no owning mailbox for agent ${grant.agentId}`,
+      },
+    }
   }
   return {
-    address: normalized,
-    agentId: grant.agentId,
-    mailboxId: owningMailbox.mailboxId,
-    compartmentKind: "delegated",
-    compartmentId: grant.grantId,
-    grantId: grant.grantId,
-    ownerEmail: normalizeMailAddress(grant.ownerEmail),
-    source: grant.source,
-    keyId: grant.keyId,
-    publicKeyPem: grant.publicKeyPem,
-    defaultPlacement: grant.defaultPlacement,
+    ok: true,
+    resolved: {
+      address: normalized,
+      agentId: grant.agentId,
+      mailboxId: owningMailbox.mailboxId,
+      compartmentKind: "delegated",
+      compartmentId: grant.grantId,
+      grantId: grant.grantId,
+      ownerEmail: normalizeMailAddress(grant.ownerEmail),
+      source: grant.source,
+      keyId: grant.keyId,
+      acceptedKeyIds: acceptedMailKeyIds(grant, now),
+      publicKeyPem: grant.publicKeyPem,
+      defaultPlacement: grant.defaultPlacement,
+    },
   }
+}
+
+export function resolveMailAddress(registry: MailroomRegistry, address: string): ResolvedMailAddress | null {
+  const outcome = classifyMailAddress(registry, address)
+  if (outcome.ok) return outcome.resolved
+  if (outcome.failure.reason === "orphaned-grant") throw new Error(outcome.failure.detail)
+  return null
+}
+
+export type ResolvedMailCompartment =
+  | { compartmentKind: "native"; mailbox: AgentMailboxRecord }
+  | { compartmentKind: "delegated"; grant: SourceGrantRecord }
+
+/**
+ * Look a compartment up by any id it has ever carried.
+ *
+ * Stored messages, decisions, and screener candidates all pin a `compartmentId`. If a grant
+ * id ever changes, those records must not become unreadable, so retired ids stay resolvable.
+ */
+export function resolveMailCompartment(registry: MailroomRegistry, compartmentId: string): ResolvedMailCompartment | null {
+  const mailbox = registry.mailboxes.find((entry) => entry.mailboxId === compartmentId)
+  if (mailbox) return { compartmentKind: "native", mailbox }
+  const grant = registry.sourceGrants.find((entry) =>
+    entry.grantId === compartmentId || (entry.previousGrantIds ?? []).includes(compartmentId))
+  return grant ? { compartmentKind: "delegated", grant } : null
+}
+
+export type MailKeyStatus = "current" | "grace" | "expired" | "unknown"
+
+export interface MailKeyAcceptance {
+  keyId: string
+  status: MailKeyStatus
+  compartmentKind?: MailCompartmentKind
+  compartmentId?: string
+  agentId?: string
+  acceptUntil?: string
+}
+
+/** Decide whether a key id is still honoured, and say why it is not when it is not. */
+export function classifyMailKey(
+  registry: MailroomRegistry,
+  keyId: string,
+  options: { now?: Date } = {},
+): MailKeyAcceptance {
+  const nowMs = (options.now ?? new Date()).getTime()
+  for (const compartment of mailroomCompartments(registry)) {
+    if (compartment.keyId === keyId) {
+      return {
+        keyId,
+        status: "current",
+        compartmentKind: compartment.compartmentKind,
+        compartmentId: compartment.compartmentId,
+        agentId: compartment.agentId,
+      }
+    }
+    const retired = compartment.previousKeys.find((previous) => previous.keyId === keyId)
+    if (retired) {
+      return {
+        keyId,
+        status: Date.parse(retired.acceptUntil) > nowMs ? "grace" : "expired",
+        compartmentKind: compartment.compartmentKind,
+        compartmentId: compartment.compartmentId,
+        agentId: compartment.agentId,
+        acceptUntil: retired.acceptUntil,
+      }
+    }
+  }
+  return { keyId, status: "unknown" }
 }
 
 export function describeMailProvenance(message: Pick<StoredMailMessage, "agentId" | "compartmentKind" | "ownerEmail" | "source" | "recipient">): MailProvenanceDescriptor {
@@ -525,15 +707,287 @@ function cloneMailroomRegistry(registry: MailroomRegistry, domain: string): Mail
   return {
     schemaVersion: 1,
     domain,
-    mailboxes: registry.mailboxes.map((mailbox) => ({ ...mailbox })),
-    sourceGrants: registry.sourceGrants.map((grant) => ({ ...grant })),
+    mailboxes: registry.mailboxes.map((mailbox) => ({
+      ...mailbox,
+      ...(mailbox.previousKeys ? { previousKeys: mailbox.previousKeys.map((key) => ({ ...key })) } : {}),
+    })),
+    sourceGrants: registry.sourceGrants.map((grant) => ({
+      ...grant,
+      ...(grant.previousGrantIds ? { previousGrantIds: [...grant.previousGrantIds] } : {}),
+      ...(grant.previousAliasAddresses ? { previousAliasAddresses: [...grant.previousAliasAddresses] } : {}),
+      ...(grant.previousKeys ? { previousKeys: grant.previousKeys.map((key) => ({ ...key })) } : {}),
+    })),
     ...(registry.senderPolicies ? { senderPolicies: registry.senderPolicies.map((policy) => ({ ...policy })) } : {}),
   }
 }
 
-function requireExistingPrivateKey(keys: Record<string, string>, keyId: string, label: string): void {
-  if (keys[keyId]) return
-  throw new Error(`Mailroom registry references ${keyId} for ${label}, but the private key is missing`)
+interface MailroomCompartmentView {
+  compartmentKind: MailCompartmentKind
+  compartmentId: string
+  agentId: string
+  /** Every address that must keep resolving here: the live one plus retired aliases. */
+  addresses: string[]
+  /** Every id that must keep resolving here: the live one plus retired ids. */
+  identifiers: string[]
+  keyId: string
+  publicKeyPem: string
+  previousKeys: RetiredMailKey[]
+}
+
+function mailroomCompartments(registry: MailroomRegistry): MailroomCompartmentView[] {
+  return [
+    ...registry.mailboxes.map((mailbox): MailroomCompartmentView => ({
+      compartmentKind: "native",
+      compartmentId: mailbox.mailboxId,
+      agentId: mailbox.agentId,
+      addresses: [normalizeMailAddress(mailbox.canonicalAddress)],
+      identifiers: [mailbox.mailboxId],
+      keyId: mailbox.keyId,
+      publicKeyPem: mailbox.publicKeyPem,
+      previousKeys: mailbox.previousKeys ?? [],
+    })),
+    ...registry.sourceGrants.map((grant): MailroomCompartmentView => ({
+      compartmentKind: "delegated",
+      compartmentId: grant.grantId,
+      agentId: grant.agentId,
+      addresses: [normalizeMailAddress(grant.aliasAddress), ...normalizedAliasList(grant.previousAliasAddresses)],
+      identifiers: [grant.grantId, ...(grant.previousGrantIds ?? [])],
+      keyId: grant.keyId,
+      publicKeyPem: grant.publicKeyPem,
+      previousKeys: grant.previousKeys ?? [],
+    })),
+  ]
+}
+
+export type MailroomRegistryProblemKind =
+  | "orphaned-grant"
+  | "duplicate-compartment-id"
+  | "duplicate-address"
+  | "missing-key-material"
+  | "dropped-compartment"
+  | "dropped-address"
+
+export interface MailroomRegistryProblem {
+  kind: MailroomRegistryProblemKind
+  compartmentId: string
+  detail: string
+}
+
+export class MailroomRegistryIntegrityError extends Error {
+  constructor(readonly problems: MailroomRegistryProblem[]) {
+    super(`mailroom registry is not publishable: ${problems.map((problem) => `${problem.kind}: ${problem.detail}`).join("; ")}`)
+    this.name = "MailroomRegistryIntegrityError"
+  }
+}
+
+/** Structural faults that make a registry unsafe to serve: orphans, collisions, half-written keys. */
+export function validateMailroomRegistry(registry: MailroomRegistry): MailroomRegistryProblem[] {
+  const problems: MailroomRegistryProblem[] = []
+  const seenIdentifiers = new Set<string>()
+  const seenAddresses = new Set<string>()
+  for (const compartment of mailroomCompartments(registry)) {
+    if (!compartment.keyId || !compartment.publicKeyPem) {
+      problems.push({
+        kind: "missing-key-material",
+        compartmentId: compartment.compartmentId,
+        detail: `${compartment.compartmentId} has no usable current key material`,
+      })
+    }
+    for (const identifier of compartment.identifiers) {
+      if (seenIdentifiers.has(identifier)) {
+        problems.push({
+          kind: "duplicate-compartment-id",
+          compartmentId: compartment.compartmentId,
+          detail: `identifier ${identifier} is claimed by more than one compartment`,
+        })
+      }
+      seenIdentifiers.add(identifier)
+    }
+    for (const address of compartment.addresses) {
+      if (seenAddresses.has(address)) {
+        problems.push({
+          kind: "duplicate-address",
+          compartmentId: compartment.compartmentId,
+          detail: `address ${address} is claimed by more than one compartment`,
+        })
+      }
+      seenAddresses.add(address)
+    }
+  }
+  for (const grant of registry.sourceGrants) {
+    if (!registry.mailboxes.some((mailbox) => mailbox.agentId === grant.agentId)) {
+      problems.push({
+        kind: "orphaned-grant",
+        compartmentId: grant.grantId,
+        detail: `Source grant ${grant.grantId} has no owning mailbox for agent ${grant.agentId}`,
+      })
+    }
+  }
+  return problems
+}
+
+/**
+ * Identities and addresses that resolve today but would stop resolving after `next` is published.
+ *
+ * This is the guard the 2026-05-07 repair needed: a rebuilt registry that quietly drops a grant
+ * id or alias is exactly how a live delivery path becomes a silent dead end.
+ */
+export function mailroomRegistryRegressions(previous: MailroomRegistry, next: MailroomRegistry): MailroomRegistryProblem[] {
+  const problems: MailroomRegistryProblem[] = []
+  const nextCompartments = mailroomCompartments(next)
+  const nextIdentifiers = new Set(nextCompartments.flatMap((compartment) => compartment.identifiers))
+  const nextAddresses = new Set(nextCompartments.flatMap((compartment) => compartment.addresses))
+  for (const compartment of mailroomCompartments(previous)) {
+    for (const identifier of compartment.identifiers) {
+      if (!nextIdentifiers.has(identifier)) {
+        problems.push({
+          kind: "dropped-compartment",
+          compartmentId: compartment.compartmentId,
+          detail: `identifier ${identifier} would stop resolving after this publish`,
+        })
+      }
+    }
+    for (const address of compartment.addresses) {
+      if (!nextAddresses.has(address)) {
+        problems.push({
+          kind: "dropped-address",
+          compartmentId: compartment.compartmentId,
+          detail: `address ${address} would stop resolving after this publish`,
+        })
+      }
+    }
+  }
+  return problems
+}
+
+/** Publish gate. A registry that is structurally broken, or that orphans what the last one served, never lands. */
+export function assertPublishableMailroomRegistry(input: {
+  registry: MailroomRegistry
+  previous?: MailroomRegistry
+}): void {
+  const problems = [
+    ...validateMailroomRegistry(input.registry),
+    ...(input.previous ? mailroomRegistryRegressions(input.previous, input.registry) : []),
+  ]
+  if (problems.length > 0) throw new MailroomRegistryIntegrityError(problems)
+}
+
+export interface MailKeyRotationRecord {
+  compartmentKind: MailCompartmentKind
+  compartmentId: string
+  agentId: string
+  address: string
+  previousKeyId: string
+  keyId: string
+  acceptUntil: string
+}
+
+export interface MailroomRotationResult {
+  registry: MailroomRegistry
+  generatedPrivateKeys: Record<string, string>
+  rotations: MailKeyRotationRecord[]
+}
+
+export const DEFAULT_MAIL_KEY_GRACE_MS = 7 * 24 * 60 * 60 * 1000
+
+function retainMailKeys(existing: RetiredMailKey[] | undefined, retired: RetiredMailKey, now: Date): RetiredMailKey[] {
+  const nowMs = now.getTime()
+  return [retired, ...(existing ?? []).filter((entry) => Date.parse(entry.acceptUntil) > nowMs)]
+}
+
+/**
+ * Rotate key material without touching identity.
+ *
+ * `mailboxId`, `canonicalAddress`, `grantId`, and `aliasAddress` are invariant across a
+ * rotation — only `keyId`/`publicKeyPem` move, and the outgoing key is retired into a bounded
+ * grace window rather than deleted. The result is validated against the input registry before
+ * it is returned, so a partial rotation can never escape this function.
+ */
+export function rotateMailroomKeys(input: {
+  registry: MailroomRegistry
+  agentId: string
+  /** Compartment ids to rotate (current or retired ids accepted). Defaults to every compartment for the agent. */
+  compartments?: string[]
+  graceMs?: number
+  now?: Date
+}): MailroomRotationResult {
+  const agentId = safeAddressPart(input.agentId) || "agent"
+  const now = input.now ?? new Date()
+  const graceMs = input.graceMs ?? DEFAULT_MAIL_KEY_GRACE_MS
+  const registry = cloneMailroomRegistry(input.registry, input.registry.domain)
+  const retiredAt = now.toISOString()
+  const acceptUntil = new Date(now.getTime() + graceMs).toISOString()
+  const generatedPrivateKeys: Record<string, string> = {}
+  const rotations: MailKeyRotationRecord[] = []
+  const selected = input.compartments ? new Set(input.compartments) : null
+  const selectedMatches = (identifiers: string[]): boolean =>
+    selected === null || identifiers.some((identifier) => selected.has(identifier))
+
+  for (const mailbox of registry.mailboxes) {
+    if (mailbox.agentId !== agentId || !selectedMatches([mailbox.mailboxId])) continue
+    const next = generateMailKeyPair(`${agentId}-native`)
+    mailbox.previousKeys = retainMailKeys(
+      mailbox.previousKeys,
+      { keyId: mailbox.keyId, publicKeyPem: mailbox.publicKeyPem, retiredAt, acceptUntil },
+      now,
+    )
+    rotations.push({
+      compartmentKind: "native",
+      compartmentId: mailbox.mailboxId,
+      agentId,
+      address: mailbox.canonicalAddress,
+      previousKeyId: mailbox.keyId,
+      keyId: next.keyId,
+      acceptUntil,
+    })
+    mailbox.keyId = next.keyId
+    mailbox.publicKeyPem = next.publicKeyPem
+    generatedPrivateKeys[next.keyId] = next.privateKeyPem
+  }
+
+  for (const grant of registry.sourceGrants) {
+    if (grant.agentId !== agentId || !selectedMatches([grant.grantId, ...(grant.previousGrantIds ?? [])])) continue
+    const next = generateMailKeyPair(`${agentId}-${grant.source}`)
+    grant.previousKeys = retainMailKeys(
+      grant.previousKeys,
+      { keyId: grant.keyId, publicKeyPem: grant.publicKeyPem, retiredAt, acceptUntil },
+      now,
+    )
+    rotations.push({
+      compartmentKind: "delegated",
+      compartmentId: grant.grantId,
+      agentId,
+      address: grant.aliasAddress,
+      previousKeyId: grant.keyId,
+      keyId: next.keyId,
+      acceptUntil,
+    })
+    grant.keyId = next.keyId
+    grant.publicKeyPem = next.publicKeyPem
+    generatedPrivateKeys[next.keyId] = next.privateKeyPem
+  }
+
+  if (rotations.length === 0) {
+    throw new Error(`No mailroom compartments matched agent ${agentId} for key rotation`)
+  }
+  assertPublishableMailroomRegistry({ registry, previous: input.registry })
+  return { registry, generatedPrivateKeys, rotations }
+}
+
+/**
+ * A vault satisfies a compartment if it holds the current key *or* a retired key still in grace.
+ *
+ * Without the grace clause every rotation instantly invalidates the owning agent's vault copy,
+ * which turns a routine key roll into a hard reconnect failure.
+ */
+function requireExistingPrivateKey(
+  keys: Record<string, string>,
+  record: { keyId: string; previousKeys?: RetiredMailKey[] },
+  label: string,
+  now: Date,
+): void {
+  if (acceptedMailKeyIds(record, now).some((keyId) => keys[keyId])) return
+  throw new Error(`Mailroom registry references ${record.keyId} for ${label}, but the private key is missing`)
 }
 
 function sourceGrantId(input: { agentId: string; ownerEmail: string; source: string }): string {
@@ -551,9 +1005,11 @@ export function ensureMailboxRegistry(input: {
   source?: string
   sourceTag?: string
   requireExistingKeys?: boolean
+  now?: Date
 }): MailroomEnsureResult {
   const domain = (input.registry?.domain ?? input.domain ?? "ouro.bot").toLowerCase()
   const agentId = safeAddressPart(input.agentId) || "agent"
+  const now = input.now ?? new Date()
   const keys: Record<string, string> = { ...(input.keys ?? {}) }
   const registry: MailroomRegistry = input.registry
     ? cloneMailroomRegistry(input.registry, domain)
@@ -568,7 +1024,7 @@ export function ensureMailboxRegistry(input: {
   let mailbox = registry.mailboxes.find((entry) => entry.agentId === agentId)
   if (mailbox) {
     if (input.requireExistingKeys !== false) {
-      requireExistingPrivateKey(keys, mailbox.keyId, `mailbox ${mailbox.canonicalAddress}`)
+      requireExistingPrivateKey(keys, mailbox, `mailbox ${mailbox.canonicalAddress}`, now)
     }
   } else {
     const mailboxKey = generateMailKeyPair(`${agentId}-native`)
@@ -596,7 +1052,7 @@ export function ensureMailboxRegistry(input: {
       grant.source.toLowerCase() === source)
     if (existing) {
       if (input.requireExistingKeys !== false) {
-        requireExistingPrivateKey(keys, existing.keyId, `source grant ${existing.aliasAddress}`)
+        requireExistingPrivateKey(keys, existing, `source grant ${existing.aliasAddress}`, now)
       }
       sourceAlias = existing.aliasAddress
     } else {

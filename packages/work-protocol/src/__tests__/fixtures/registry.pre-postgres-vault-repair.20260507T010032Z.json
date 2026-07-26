@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "domain": "ouro.bot",
+  "mailboxes": [
+    {
+      "agentId": "slugger",
+      "mailboxId": "mailbox_slugger",
+      "canonicalAddress": "slugger@ouro.bot",
+      "keyId": "mail_slugger-native_83d8cb6cc4f52c29",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtb3ovCr6RjwCBdqbjzub\n31Mv4SOj6cxe3UQ2bVGD/iBlysVaYuv3fFovySnG7iTgRrQqjq7CgFEPkaOPyVAB\n44bDDjLtQK7JRTjAT7rKZvRYKeCUrAmzJYJjRVSi/6YcO5AdWYvOPBLNWQwp4ulm\n87opsIpalQlgALCHdGlUNqLcZZ3cgqc366PR/BAo6PZ+w148jdfyDIoRevDvQLQz\nDHZCp4nlcQ2Pk/iKPYWECkbKFqlOuF9Bpl4eJviY8F6AQW3Z89DiGFFOAtEDxdmX\nP+nHGvS9tFnQSxxgcFb700XUpt6o+8CWmGwdCK+ddpl+RBe/KGq0x0vKoVxrnsYc\nSwIDAQAB\n-----END PUBLIC KEY-----\n",
+      "defaultPlacement": "screener"
+    }
+  ],
+  "sourceGrants": [
+    {
+      "grantId": "grant_slugger_hey",
+      "agentId": "slugger",
+      "ownerEmail": "ari@mendelow.me",
+      "source": "hey",
+      "aliasAddress": "me.mendelow.ari.slugger@ouro.bot",
+      "keyId": "mail_slugger-hey_08c2033a62a2627b",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAywtpvbuHdz+D5Y8t9Jcm\n6ZJfLQyRibJi2JJHkvtb8EFd1bSiJNmOLtXs3d43z0f+MvBTAjHCrhHsWgmovlcl\nzQp5RTKiwH+Hs8R+9pDNUN9uEqm+MaCVhLsFHpvVsUn4iKr7oxcTkjz1vvGUBXAE\nhKh6J4Ksepgn4TlgpC7pAfMK4tSk1kvehgGGw8dz9BfuyNm7/TjE2BQjYCbriIiT\nec01Pw6XoQPlZoqRRkwlv1Ia2mHRxHnFvIV3KAoaC/G1/yo9x4tVHZhVbi4sm/ZJ\n7FPR02fDoRy3YC7Y5yikODSF5YV/LkVDuHgqZ49IE/TnDsLPIXrg06M0HliJqzsW\nkwIDAQAB\n-----END PUBLIC KEY-----\n",
+      "defaultPlacement": "imbox",
+      "enabled": true
+    }
+  ]
+}

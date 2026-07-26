@@ -3,11 +3,12 @@ import * as path from "node:path"
 import { BlobServiceClient } from "@azure/storage-blob"
 import {
   buildStoredMailMessage,
+  classifyMailAddress,
   classifyResolvedMailPlacement,
   decryptStoredMailMessage,
-  resolveMailAddress,
   type DecryptedMailMessage,
   type EncryptedPayload,
+  type MailAddressResolutionFailure,
   type MailAuthenticationSummary,
   type MailClassification,
   type MailEnvelopeInput,
@@ -17,6 +18,48 @@ import {
   type StoredMailMessage,
 } from "@ouro/work-protocol"
 import { logEvent } from "./log"
+
+/**
+ * A recipient the mailroom cannot serve is not automatically spam.
+ *
+ * `mail_delivery_orphaned` is deliberately its own greppable, error-level event: it means a
+ * delivery path that used to work is now dead, which is the failure that went unnoticed for
+ * 77 days when every rejection looked like an ordinary `recipient_rejected`.
+ */
+export function logMailAddressFailure(failure: MailAddressResolutionFailure): void {
+  if (failure.reason === "unknown-address") {
+    logEvent({
+      component: "mail-ingress",
+      event: "recipient_rejected",
+      message: "smtp recipient rejected",
+      meta: { address: failure.address },
+    })
+    return
+  }
+  if (failure.reason === "grant-disabled") {
+    logEvent({
+      level: "warn",
+      component: "mail-ingress",
+      event: "recipient_grant_disabled",
+      message: "smtp recipient rejected because its source grant is disabled",
+      meta: { address: failure.address, agentId: failure.agentId, grantId: failure.grantId },
+    })
+    return
+  }
+  logEvent({
+    level: "error",
+    component: "mail-ingress",
+    event: "mail_delivery_orphaned",
+    message: "ORPHANED MAILROOM IDENTITY: a known delivery path can no longer be served",
+    meta: {
+      address: failure.address,
+      agentId: failure.agentId,
+      grantId: failure.grantId,
+      reason: failure.reason,
+      detail: failure.detail,
+    },
+  })
+}
 
 export interface MailroomStore {
   putRawMessage(input: {
@@ -160,15 +203,19 @@ export async function ingestRawMailToStore(input: {
   privateEnvelope: PrivateMailEnvelope
   receivedAt?: Date
   authentication?: MailAuthenticationSummary
-}): Promise<{ accepted: StoredMailMessage[]; rejectedRecipients: string[] }> {
+}): Promise<{ accepted: StoredMailMessage[]; rejectedRecipients: string[]; orphanedRecipients: string[] }> {
   const accepted: StoredMailMessage[] = []
   const rejectedRecipients: string[] = []
+  const orphanedRecipients: string[] = []
   for (const recipient of input.envelope.rcptTo) {
-    const resolved = resolveMailAddress(input.registry, recipient)
-    if (!resolved) {
+    const outcome = classifyMailAddress(input.registry, recipient)
+    if (!outcome.ok) {
       rejectedRecipients.push(recipient)
+      if (outcome.failure.reason === "orphaned-grant") orphanedRecipients.push(recipient)
+      logMailAddressFailure(outcome.failure)
       continue
     }
+    const resolved = outcome.resolved
     const classification = classifyResolvedMailPlacement({
       registry: input.registry,
       resolved,
@@ -187,12 +234,13 @@ export async function ingestRawMailToStore(input: {
     accepted.push(result.message)
   }
   logEvent({
+    level: orphanedRecipients.length > 0 ? "error" : "info",
     component: "mail-ingress",
     event: "mail_ingest_complete",
     message: "mail ingest completed",
-    meta: { accepted: accepted.length, rejected: rejectedRecipients.length },
+    meta: { accepted: accepted.length, rejected: rejectedRecipients.length, orphaned: orphanedRecipients.length },
   })
-  return { accepted, rejectedRecipients }
+  return { accepted, rejectedRecipients, orphanedRecipients }
 }
 
 export function decryptMessages(messages: StoredMailMessage[], privateKeys: Record<string, string>): DecryptedMailMessage[] {
